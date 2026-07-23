@@ -1,440 +1,221 @@
 'use client';
 
-import { useEffect, useState, FormEvent, ChangeEvent } from 'react';
-import { supabase } from '@/lib/supabase';
+import React, { useState } from 'react';
+import {
+  Wallet,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Plus,
+  CreditCard,
+  TrendingUp,
+  Receipt,
+  Sparkles,
+  ShieldCheck
+} from 'lucide-react';
 
-interface Wallet {
-  id: number;
+interface WalletItem {
+  id: string;
   name: string;
-  type: string;
+  balance: number;
 }
 
 interface Transaction {
-  id: string | number;
+  id: string;
+  date: string;
+  description: string;
   amount: number;
-  type: string;
-  category?: string;
-  description?: string;
-  wallet_id?: number;
-  created_at?: string;
-  wallets?: { name: string };
-}
-
-interface Budget {
-  id: string | number;
+  type: 'INCOME' | 'EXPENSE';
   category: string;
-  limit_amount: number;
-}
-
-interface PaymentRow {
-  walletId: number;
-  amount: number;
-  displayAmount: string;
+  wallet: string;
 }
 
 export default function Home() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [wallets] = useState<WalletItem[]>([
+    { id: '1', name: 'BCA', balance: 350000 },
+    { id: '2', name: 'DANA', balance: 150000 },
+    { id: '3', name: 'Cash', balance: 80000 },
+  ]);
 
-  // Form Transaksi Utama
-  const [description, setDescription] = useState('');
-  const [type, setType] = useState('expense');
-  const [category, setCategory] = useState('Kebutuhan Harian');
+  const [transactions] = useState<Transaction[]>([
+    {
+      id: '1',
+      date: '2026-07-23',
+      description: 'Gajian Side Job',
+      amount: 500000,
+      type: 'INCOME',
+      category: 'Main Cashflow',
+      wallet: 'BCA',
+    },
+    {
+      id: '2',
+      date: '2026-07-23',
+      description: 'Kopi & Nasi Padang',
+      amount: 45000,
+      type: 'EXPENSE',
+      category: 'Survival Mode',
+      wallet: 'DANA',
+    },
+  ]);
 
-  // Multi-Bayar (Split Payment Rows)
-  const [payments, setPayments] = useState<PaymentRow[]>([]);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    
-    const { data: txData } = await supabase
-      .from('transactions')
-      .select('*, wallets(name)')
-      .order('id', { ascending: false });
-
-    const { data: bgData } = await supabase
-      .from('budgets')
-      .select('*');
-
-    const { data: wlData } = await supabase
-      .from('wallets')
-      .select('*')
-      .order('id', { ascending: true });
-
-    setTransactions(txData || []);
-    setBudgets(bgData || []);
-    setWallets(wlData || []);
-
-    if (wlData && wlData.length > 0 && payments.length === 0) {
-      setPayments([{ walletId: wlData[0].id, amount: 0, displayAmount: '' }]);
-    }
-
-    setLoading(false);
-  };
-
-  const handleAddPaymentRow = () => {
-    if (wallets.length === 0) return;
-    setPayments([...payments, { walletId: wallets[0].id, amount: 0, displayAmount: '' }]);
-  };
-
-  const handleRemovePaymentRow = (index: number) => {
-    if (payments.length <= 1) return;
-    const newPayments = payments.filter((_, i) => i !== index);
-    setPayments(newPayments);
-  };
-
-  const handlePaymentChange = (index: number, field: 'walletId' | 'amount', value: any) => {
-    const updated = [...payments];
-    if (field === 'walletId') {
-      updated[index].walletId = Number(value);
-    } else if (field === 'amount') {
-      const cleanVal = value.replace(/\D/g, '');
-      const numVal = Number(cleanVal);
-      updated[index].amount = numVal;
-      updated[index].displayAmount = cleanVal === '' ? '' : `Rp ${numVal.toLocaleString('id-ID')}`;
-    }
-    setPayments(updated);
-  };
-
-  const handleAddTransaction = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!description) return;
-
-    const validPayments = payments.filter((p) => p.amount > 0);
-    if (validPayments.length === 0) {
-      alert('Masukkan minimal 1 nominal pembayaran!');
-      return;
-    }
-
-    setSubmitting(true);
-
-    const inserts = validPayments.map((p) => ({
-      description: validPayments.length > 1 ? `${description} (${wallets.find(w => w.id === p.walletId)?.name})` : description,
-      amount: p.amount,
-      type,
-      category,
-      wallet_id: p.walletId,
-    }));
-
-    const { error } = await supabase.from('transactions').insert(inserts);
-
-    if (error) {
-      console.error('Error adding transaction:', error.message);
-      alert('Gagal menambah transaksi: ' + error.message);
-    } else {
-      setDescription('');
-      setPayments([{ walletId: wallets[0]?.id || 1, amount: 0, displayAmount: '' }]);
-      fetchData();
-    }
-    setSubmitting(false);
-  };
-
-  const totalIncome = transactions
-    .filter((t) => t.type === 'income' || t.type === 'pemasukan')
-    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
-  const totalExpense = transactions
-    .filter((t) => t.type === 'expense' || t.type === 'pengeluaran')
-    .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-
-  const balance = totalIncome - totalExpense;
-
-  const getCategoryExpense = (catName: string) => {
-    return transactions
-      .filter((t) => (t.type === 'expense' || t.type === 'pengeluaran') && t.category === catName)
-      .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-  };
-
-  const getWalletBalance = (walletId: number) => {
-    const txList = transactions.filter((t) => Number(t.wallet_id) === Number(walletId));
-    const inc = txList
-      .filter((t) => t.type === 'income' || t.type === 'pemasukan')
-      .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-    const exp = txList
-      .filter((t) => t.type === 'expense' || t.type === 'pengeluaran')
-      .reduce((acc, t) => acc + Number(t.amount || 0), 0);
-    return inc - exp;
-  };
-
-  const totalFormAmount = payments.reduce((acc, p) => acc + p.amount, 0);
+  const totalBalance = wallets.reduce((acc, curr) => acc + curr.balance, 0);
 
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100 p-8">
-      <div className="max-w-5xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <header className="border-b border-slate-800 pb-6 flex justify-between items-center">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans p-4 md:p-8">
+      <div className="max-w-4xl mx-auto space-y-6">
+
+        {/* Header Section */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent">
-              Dashboard Keuangan Personal
+            <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold tracking-wider uppercase mb-1">
+              <ShieldCheck className="w-4 h-4" />
+              <span>Financial Health Zone</span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+              Anti-Judol Hub <Sparkles className="inline-block w-5 h-5 text-yellow-400" />
             </h1>
-            <p className="text-slate-400 mt-1">
-              Sistem Proteksi & Kontrol Keuangan Anti Judol 🛡️✨
+            <p className="text-zinc-400 text-sm mt-1">
+              Smart Financial Tracker • Bebas Slot, Dompet Sehat!
             </p>
           </div>
-          <button
-            onClick={fetchData}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition text-sm font-medium"
-          >
-            Refresh Data
-          </button>
+          <div className="bg-zinc-800/50 p-4 rounded-2xl border border-zinc-700/50">
+            <span className="text-xs text-zinc-400 font-medium block">Total Ammo (Net Worth)</span>
+            <span className="text-2xl md:text-3xl font-black text-emerald-400 tracking-tight">
+              Rp {totalBalance.toLocaleString('id-ID')}
+            </span>
+          </div>
         </header>
 
-        {/* Ringkasan Total Keuangan */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-800/60 p-5 rounded-xl border border-slate-700/50">
-            <p className="text-sm text-slate-400">Total Saldo Gabungan</p>
-            <p className={`text-2xl font-bold mt-1 ${balance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {loading ? '...' : `Rp ${balance.toLocaleString('id-ID')}`}
-            </p>
+        {/* Wallets Grid */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-emerald-400" /> Active Wallets
+            </h2>
+            <button className="text-xs text-emerald-400 hover:underline flex items-center gap-1 font-medium">
+              <Plus className="w-3 h-3" /> Tambah Dompet
+            </button>
           </div>
 
-          <div className="bg-slate-800/60 p-5 rounded-xl border border-slate-700/50">
-            <p className="text-sm text-slate-400">Total Pemasukan</p>
-            <p className="text-2xl font-bold mt-1 text-teal-400">
-              {loading ? '...' : `Rp ${totalIncome.toLocaleString('id-ID')}`}
-            </p>
-          </div>
-
-          <div className="bg-slate-800/60 p-5 rounded-xl border border-slate-700/50">
-            <p className="text-sm text-slate-400">Total Pengeluaran</p>
-            <p className="text-2xl font-bold mt-1 text-rose-400">
-              {loading ? '...' : `Rp ${totalExpense.toLocaleString('id-ID')}`}
-            </p>
-          </div>
-        </div>
-
-        {/* Fitur Wallet / Sumber Rekening */}
-        <div className="bg-slate-800/60 p-6 rounded-xl border border-slate-700/50 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-200">Daftar Rekening / Dompet (Wallets) 💳</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {wallets.map((w) => {
-              const currentBalance = getWalletBalance(w.id);
-              return (
-                <div key={w.id} className="bg-slate-900/80 p-4 rounded-lg border border-slate-700/60">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider">{w.type}</p>
-                  <p className="text-sm font-semibold text-slate-200 mt-1">{w.name}</p>
-                  <p className={`text-lg font-bold mt-2 ${currentBalance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    Rp {currentBalance.toLocaleString('id-ID')}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Fitur Target Budgets / Batas Pengeluaran */}
-        <div className="bg-slate-800/60 p-6 rounded-xl border border-slate-700/50 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-200">Batas Anggaran Bulanan (Budgets) 🎯</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {budgets.map((b) => {
-              const used = getCategoryExpense(b.category);
-              const percentage = Math.min(Math.round((used / b.limit_amount) * 100), 100);
-              const isOver = used > b.limit_amount;
-
-              return (
-                <div key={b.id} className="bg-slate-900/80 p-4 rounded-lg border border-slate-700/60 space-y-2">
-                  <div className="flex justify-between items-center text-sm font-medium">
-                    <span className="text-slate-200">{b.category}</span>
-                    <span className={isOver ? 'text-rose-400 font-bold' : 'text-slate-400'}>
-                      Rp {used.toLocaleString('id-ID')} / Rp {Number(b.limit_amount).toLocaleString('id-ID')}
-                    </span>
-                  </div>
-
-                  <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-                    <div
-                      className={`h-2.5 rounded-full transition-all duration-500 ${
-                        isOver
-                          ? 'bg-rose-500'
-                          : percentage > 75
-                          ? 'bg-amber-400'
-                          : 'bg-emerald-500'
-                      }`}
-                      style={{ width: `${percentage}%` }}
-                    ></div>
-                  </div>
-
-                  <div className="flex justify-between text-xs text-slate-400">
-                    <span>{percentage}% Terpakai</span>
-                    {isOver && <span className="text-rose-400 font-semibold">⚠️ Melebihi Batas!</span>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Form Tambah Transaksi dengan Multi-Bayar */}
-        <div className="bg-slate-800/60 p-6 rounded-xl border border-slate-700/50 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-200">Catat Transaksi Baru ➕</h2>
-          
-          <form onSubmit={handleAddTransaction} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <input
-                type="text"
-                placeholder="Keterangan (mis: Makan Malam, Belanja)"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                required
-              />
-
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {wallets.map((w) => (
+              <div
+                key={w.id}
+                className="p-5 rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-900/40 border border-zinc-800/80 hover:border-emerald-500/40 transition-all duration-300 group"
               >
-                <option value="expense">Pengeluaran</option>
-                <option value="income">Pemasukan</option>
-              </select>
+                <div className="flex justify-between items-start mb-3">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/50 group-hover:border-emerald-500/50">
+                    {w.name}
+                  </span>
+                  <Wallet className="w-4 h-4 text-zinc-500 group-hover:text-emerald-400 transition-colors" />
+                </div>
+                <div className="text-lg font-bold text-zinc-100">
+                  Rp {w.balance.toLocaleString('id-ID')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-              >
-                <option value="Kebutuhan Harian">Kebutuhan Harian</option>
-                <option value="Pemasukan Utama">Pemasukan Utama</option>
-                <option value="Tabungan/Investasi">Tabungan/Investasi</option>
-                <option value="Lainnya">Lainnya</option>
-              </select>
-            </div>
+        {/* Form Transaction & Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-            {/* Sub-Form Multi Baris Pembayaran */}
-            <div className="bg-slate-900/60 p-4 rounded-lg border border-slate-700/60 space-y-3">
-              <div className="flex justify-between items-center">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Rincian Pembayaran / Metode Bayar
-                </p>
-                <p className="text-xs font-semibold text-teal-400">
-                  Total: Rp {totalFormAmount.toLocaleString('id-ID')}
-                </p>
+          {/* Form Quick Add */}
+          <section className="lg:col-span-2 p-6 rounded-3xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl space-y-4">
+            <h2 className="text-base font-bold text-zinc-200 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-400" /> Catat Transaksi
+            </h2>
+
+            <form className="space-y-3" onSubmit={(e) => e.preventDefault()}>
+              <div>
+                <label className="text-xs text-zinc-400 mb-1 block">Keterangan</label>
+                <input
+                  type="text"
+                  placeholder="misal: Kopi / Nasi Goreng"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                />
               </div>
 
-              {payments.map((p, index) => (
-                <div key={index} className="flex gap-3 items-center">
-                  <select
-                    value={p.walletId}
-                    onChange={(e) => handlePaymentChange(index, 'walletId', e.target.value)}
-                    className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 flex-1"
-                  >
-                    {wallets.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.name}
-                      </option>
+              <div>
+                <label className="text-xs text-zinc-400 mb-1 block">Nominal (Rp)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-zinc-400 mb-1 block">Tipe</label>
+                  <select className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500">
+                    <option value="EXPENSE">Survival (Keluar)</option>
+                    <option value="INCOME">Income (Masuk)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-zinc-400 mb-1 block">Dompet</label>
+                  <select className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500">
+                    {wallets.map(w => (
+                      <option key={w.id} value={w.name}>{w.name}</option>
                     ))}
                   </select>
-
-                  <input
-                    type="text"
-                    placeholder="Rp 0"
-                    value={p.displayAmount}
-                    onChange={(e) => handlePaymentChange(index, 'amount', e.target.value)}
-                    className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 flex-1"
-                    required
-                  />
-
-                  {payments.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePaymentRow(index)}
-                      className="px-2.5 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white rounded transition text-xs font-bold"
-                      title="Hapus Metode Ini"
-                    >
-                      ✕
-                    </button>
-                  )}
                 </div>
-              ))}
+              </div>
 
               <button
-                type="button"
-                onClick={handleAddPaymentRow}
-                className="text-xs text-teal-400 hover:text-teal-300 font-medium underline transition"
+                type="submit"
+                className="w-full mt-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
               >
-                + Tambah Metode Bayar Lain (Split Payment)
+                Lock It In ✨
               </button>
-            </div>
+            </form>
+          </section>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition text-sm disabled:opacity-50"
-            >
-              {submitting ? 'Menyimpan...' : 'Simpan Transaksi'}
-            </button>
-          </form>
-        </div>
+          {/* Transactions List */}
+          <section className="lg:col-span-3 p-6 rounded-3xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl space-y-4">
+            <h2 className="text-base font-bold text-zinc-200 flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-emerald-400" /> Transaksi Terakhir
+            </h2>
 
-        {/* Tabel Data */}
-        <div className="bg-slate-800/40 rounded-xl border border-slate-700/50 overflow-hidden">
-          <div className="p-4 border-b border-slate-700/50">
-            <h2 className="text-lg font-semibold text-slate-200">Riwayat Transaksi</h2>
-          </div>
-
-          {loading ? (
-            <div className="p-8 text-center text-slate-400">Mengambil data dari Supabase...</div>
-          ) : transactions.length === 0 ? (
-            <div className="p-8 text-center text-slate-400">
-              Belum ada data transaksi. Coba tambah transaksi pertama kamu di atas! 👆
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-300">
-                <thead className="bg-slate-800 text-slate-400 text-xs uppercase">
-                  <tr>
-                    <th className="px-6 py-3">ID</th>
-                    <th className="px-6 py-3">Keterangan</th>
-                    <th className="px-6 py-3">Dompet</th>
-                    <th className="px-6 py-3">Kategori</th>
-                    <th className="px-6 py-3">Tipe</th>
-                    <th className="px-6 py-3">Jumlah</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/50">
-                  {transactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-800/50 transition">
-                      <td className="px-6 py-4 font-mono">{t.id}</td>
-                      <td className="px-6 py-4 font-medium text-white">{t.description || '-'}</td>
-                      <td className="px-6 py-4 text-slate-400 font-medium">
-                        {t.wallets?.name || 'Umum'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 rounded-full text-xs bg-slate-700 text-emerald-300">
-                          {t.category || 'Umum'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-0.5 rounded text-xs uppercase font-bold ${
-                          t.type === 'income' || t.type === 'pemasukan' 
-                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' 
-                            : 'bg-rose-950 text-rose-400 border border-rose-800'
-                        }`}>
-                          {t.type}
-                        </span>
-                      </td>
-                      <td className={`px-6 py-4 font-semibold ${
-                        t.type === 'income' || t.type === 'pemasukan' ? 'text-emerald-400' : 'text-rose-400'
+            <div className="space-y-3">
+              {transactions.map((t) => (
+                <div
+                  key={t.id}
+                  className="p-4 rounded-2xl bg-zinc-950/60 border border-zinc-800/60 flex items-center justify-between gap-3 hover:border-zinc-700 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-xl ${t.type === 'INCOME'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                       }`}>
-                        Rp {Number(t.amount || 0).toLocaleString('id-ID')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      {t.type === 'INCOME' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-zinc-100">{t.description}</h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
+                          {t.category}
+                        </span>
+                        <span className="text-[10px] text-zinc-500">• {t.wallet}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className={`text-sm font-bold ${t.type === 'INCOME' ? 'text-emerald-400' : 'text-zinc-200'
+                      }`}>
+                      {t.type === 'INCOME' ? '+' : '-'} Rp {t.amount.toLocaleString('id-ID')}
+                    </span>
+                    <span className="block text-[10px] text-zinc-500 mt-0.5">{t.date}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </section>
+
         </div>
 
       </div>
-    </main>
+    </div>
   );
 }
