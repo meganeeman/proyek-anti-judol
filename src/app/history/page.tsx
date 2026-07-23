@@ -69,6 +69,7 @@ export default function HistoryPage() {
     const [submitting, setSubmitting] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState<'ALL' | 'EXPENSE' | 'INCOME'>('ALL');
+    const [dateFilter, setDateFilter] = useState<string>('');
     const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
     const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
@@ -157,7 +158,9 @@ export default function HistoryPage() {
 
         const matchesType = typeFilter === 'ALL' ? true : t.type?.toUpperCase() === typeFilter;
 
-        return matchesSearch && matchesType;
+        const matchesDate = dateFilter ? (t.created_at && t.created_at.startsWith(dateFilter)) : true;
+
+        return matchesSearch && matchesType && matchesDate;
     });
 
     const totalIncome = filteredTransactions
@@ -285,8 +288,25 @@ export default function HistoryPage() {
                             />
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <Filter className="w-4 h-4 text-emerald-500" />
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-2xl border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
+                                <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                <input
+                                    type="date"
+                                    value={dateFilter}
+                                    onChange={(e) => setDateFilter(e.target.value)}
+                                    className={`bg-transparent text-xs font-bold focus:outline-none ${isDark ? 'text-zinc-200' : 'text-slate-800'}`}
+                                />
+                                {dateFilter && (
+                                    <button
+                                        onClick={() => setDateFilter('')}
+                                        className="p-0.5 text-zinc-400 hover:text-rose-400 transition-colors"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+
                             <div className={`p-1 rounded-2xl border flex gap-1 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
                                 <button
                                     onClick={() => setTypeFilter('ALL')}

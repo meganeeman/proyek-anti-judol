@@ -651,19 +651,24 @@ export default function Home() {
               <PieChart className="w-4 h-4 text-emerald-500" /> Rekapitulasi Financial Bulanan
             </h2>
 
-            <div className="flex items-center gap-2 bg-zinc-950/40 p-1.5 rounded-2xl border border-zinc-800">
-              <Filter className="w-3.5 h-3.5 text-emerald-500 ml-1" />
+            <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border transition-all cursor-pointer ${isDark
+                ? 'bg-zinc-950/80 border-emerald-500/40 hover:border-emerald-400 [color-scheme:dark]'
+                : 'bg-emerald-50 border-emerald-200 hover:border-emerald-400 shadow-sm [color-scheme:light]'
+              }`}>
+              <Filter className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
               <input
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className={`bg-transparent text-xs font-bold focus:outline-none ${isDark ? 'text-zinc-200' : 'text-slate-800'}`}
+                className={`bg-transparent text-xs font-extrabold focus:outline-none cursor-pointer ${isDark ? 'text-emerald-400' : 'text-emerald-800'
+                  }`}
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+            <div className={`p-4 rounded-2xl border transition-all ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50/80 border-slate-200 shadow-sm'
+              }`}>
               <span className={`text-[10px] uppercase font-bold flex items-center gap-1 text-emerald-500`}>
                 <ArrowDownCircle className="w-3.5 h-3.5" /> Total Pemasukan
               </span>
@@ -672,20 +677,22 @@ export default function Home() {
               </p>
             </div>
 
-            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 text-rose-400`}>
+            <div className={`p-4 rounded-2xl border transition-all ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50/80 border-slate-200 shadow-sm'
+              }`}>
+              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 text-rose-500`}>
                 <ArrowUpCircle className="w-3.5 h-3.5" /> Total Pengeluaran
               </span>
-              <p className="text-lg font-black mt-1 text-rose-400">
+              <p className="text-lg font-black mt-1 text-rose-500">
                 Rp {totalExpenseThisMonth.toLocaleString('id-ID')}
               </p>
             </div>
 
-            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
+            <div className={`p-4 rounded-2xl border transition-all ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50/80 border-slate-200 shadow-sm'
+              }`}>
               <span className={`text-[10px] uppercase font-bold flex items-center gap-1 ${subTextClass}`}>
                 Nett Cashflow
               </span>
-              <p className={`text-lg font-black mt-1 ${netSavingsThisMonth >= 0 ? 'text-emerald-400' : 'text-rose-500'}`}>
+              <p className={`text-lg font-black mt-1 ${netSavingsThisMonth >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                 {netSavingsThisMonth >= 0 ? '+' : ''} Rp {netSavingsThisMonth.toLocaleString('id-ID')}
               </p>
             </div>
@@ -1011,7 +1018,7 @@ export default function Home() {
 
             <p className="text-xs leading-relaxed">
               {activeTooltip === 'totalAmmo' && 'Total Ammo adalah akumulasi total saldo kekayaan kamu dari seluruh dompet aktif yang terdaftar di Supabase.'}
-              {activeTooltip === 'recoveryBudget' && 'Recovery Budget adalah alokasi batas maksimal pengeluaran sensitif/darurat bulanan (Max 300rb) untuk membantu proses pemulihan secara bertahap.'}
+              {activeTooltip === 'recoveryBudget' && 'Recovery Budget adalah alokasi batas maksimal pengeluaran sensitif/darurar bulanan (Max 300rb) untuk membantu proses pemulihan secara bertahap.'}
             </p>
           </div>
         </div>
