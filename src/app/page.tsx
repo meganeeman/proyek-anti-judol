@@ -29,7 +29,6 @@ import {
   Moon,
   Flame,
   HelpCircle,
-  Menu,
   BarChart3,
   History as HistoryIcon,
   Home as HomeIcon,
@@ -93,7 +92,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
@@ -394,27 +392,17 @@ export default function Home() {
     <div className={`min-h-screen font-sans p-4 md:p-8 pb-28 md:pb-8 transition-colors duration-300 ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-6">
 
-        {/* Header Section (UI Clean: Tab Navigasi Terpisah dari Badge Streak) */}
+        {/* Header Section (Clean: Tanpa Menu Burger) */}
         <header className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 md:p-6 rounded-3xl border backdrop-blur-xl ${cardClass}`}>
           <div className="flex items-center justify-between w-full md:w-auto">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsSidebarOpen(true)}
-                className={`lg:hidden p-2.5 rounded-2xl border transition-all active:scale-95 flex items-center justify-center ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-emerald-400' : 'bg-slate-100 border-slate-300 text-emerald-600'
-                  }`}
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-
-              <div>
-                <div className="flex items-center gap-2 text-emerald-500 text-xs font-semibold tracking-wider uppercase mb-0.5">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Financial Health Zone</span>
-                </div>
-                <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
-                  Anti-Judol Hub <Sparkles className="inline-block w-4 h-4 text-yellow-400" />
-                </h1>
+            <div>
+              <div className="flex items-center gap-2 text-emerald-500 text-xs font-semibold tracking-wider uppercase mb-0.5">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Financial Health Zone</span>
               </div>
+              <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
+                Anti-Judol Hub
+              </h1>
             </div>
 
             <div className={`md:hidden p-2.5 rounded-2xl border text-right ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
@@ -441,10 +429,9 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center justify-between md:justify-end gap-3">
-            {/* Streak Badge Dipindah Dekat Profil / Total Ammo */}
             <div className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border font-bold text-xs ${isDailyOverbudget
-                ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-                : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400'
+              ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
+              : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400'
               }`}>
               <Flame className={`w-4 h-4 ${isDailyOverbudget ? 'text-rose-500' : 'fill-orange-500 animate-pulse'}`} />
               <span>{isDailyOverbudget ? 'Streak Pecah!' : `${streakDays} Hari Clean!`}</span>
@@ -472,7 +459,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* WIDGET REKAPITULASI BULANAN & SMART INSIGHT PRO-RATA */}
+        {/* WIDGET REKAPITULASI BULANAN & SMART INSIGHT */}
         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="text-sm font-bold flex items-center gap-2">
@@ -527,18 +514,18 @@ export default function Home() {
 
         {/* Daily Allowance Tracker Widget */}
         <section className={`p-6 rounded-3xl border space-y-3 transition-all ${isDailyOverbudget
-            ? 'bg-rose-950/20 border-rose-500/40'
-            : isDark
-              ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
-              : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
+          ? 'bg-rose-950/20 border-rose-500/40'
+          : isDark
+            ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
+            : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
           }`}>
           <div className="flex justify-between items-center">
             <div className={`flex items-center gap-2 text-sm font-bold ${isDailyOverbudget ? 'text-rose-400' : isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
               <CalendarCheck className="w-4 h-4 text-emerald-500" /> Daily Limit Tracker (Hari Ini)
             </div>
             <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${isDailyOverbudget
-                ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                : 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+              ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+              : 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
               }`}>
               {isDailyOverbudget ? `Overbudget: -Rp ${overbudgetAmount.toLocaleString('id-ID')}` : `Sisa Limit: Rp ${remainingDailyLimit.toLocaleString('id-ID')}`}
             </span>
@@ -655,7 +642,7 @@ export default function Home() {
           </section>
         </div>
 
-        {/* Form Input Batch Nota & Split Bill (Deskop Multi-Column Layout) */}
+        {/* Form Input Batch Nota */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <section className={`hidden lg:block lg:col-span-3 p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
             <div className="flex items-center justify-between">
@@ -753,7 +740,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Multi Item Rows dengan Format Auto Rp 15.000 💵 */}
               <div className="space-y-2">
                 <label className={`text-xs block font-bold ${subTextClass}`}>Baris Barang Belanjaan</label>
                 {items.map((item, index) => (
@@ -800,7 +786,7 @@ export default function Home() {
                   disabled={submitting}
                   className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2 text-xs disabled:opacity-50"
                 >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Semua Nota ✨'}
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Semua Nota'}
                 </button>
               </div>
             </form>
@@ -852,7 +838,7 @@ export default function Home() {
 
       </div>
 
-      {/* STICKY BOTTOM NAVIGATION BAR UNTUK MOBILE (SARAN SAUDARAKU 📱) */}
+      {/* STICKY BOTTOM NAVIGATION BAR MOBILE */}
       <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 p-2.5 border-t backdrop-blur-xl flex justify-around items-center ${isDark ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400' : 'bg-white/90 border-slate-200 text-slate-600'
         }`}>
         <Link
@@ -975,7 +961,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Modal Popup Tooltip Mobile */}
+      {/* Modal Tooltip */}
       {activeTooltip && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-3xl w-full max-w-sm space-y-3 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900 shadow-xl'
@@ -996,7 +982,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Modal Popup Tambah Dompet dengan Format Rp */}
+      {/* Modal Tambah Dompet */}
       {isWalletModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-3xl w-full max-w-md space-y-4 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200 shadow-2xl'
