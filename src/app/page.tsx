@@ -646,7 +646,7 @@ export default function Home() {
         </div>
 
         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-2">
             <h2 className="text-sm font-bold flex items-center gap-2">
               <PieChart className="w-4 h-4 text-emerald-500" /> Rekapitulasi Financial Bulanan
             </h2>
@@ -1018,7 +1018,7 @@ export default function Home() {
 
             <p className="text-xs leading-relaxed">
               {activeTooltip === 'totalAmmo' && 'Total Ammo adalah akumulasi total saldo kekayaan kamu dari seluruh dompet aktif yang terdaftar di Supabase.'}
-              {activeTooltip === 'recoveryBudget' && 'Recovery Budget adalah alokasi batas maksimal pengeluaran sensitif/darurar bulanan (Max 300rb) untuk membantu proses pemulihan secara bertahap.'}
+              {activeTooltip === 'recoveryBudget' && 'Recovery Budget adalah alokasi batas maksimal pengeluaran sensitif/darurat bulanan (Max 300rb) untuk membantu proses pemulihan secara bertahap.'}
             </p>
           </div>
         </div>
