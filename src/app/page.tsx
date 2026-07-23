@@ -18,7 +18,6 @@ import {
   Plus,
   CreditCard,
   TrendingUp,
-  Sparkles,
   ShieldCheck,
   Loader2,
   X,
@@ -291,13 +290,13 @@ export default function Home() {
     const diff = proRataLimitAllowed - totalExpenseThisMonth;
 
     if (totalExpenseThisMonth === 0) {
-      return "🟢 Disiplin sempurna! Belum ada pengeluaran yang tercatat di bulan ini. Pertahankan!";
+      return "Disiplin sempurna! Belum ada pengeluaran yang tercatat di bulan ini. Pertahankan!";
     }
 
     if (totalExpenseThisMonth <= proRataLimitAllowed) {
-      return `🟢 Disiplin Hebat! Pengeluaran kamu hemat Rp ${diff.toLocaleString('id-ID')} dari jatah pro-rata s/d hari ke-${currentDay}!`;
+      return `Disiplin Hebat! Pengeluaran kamu hemat Rp ${diff.toLocaleString('id-ID')} dari jatah pro-rata s/d hari ke-${currentDay}!`;
     } else {
-      return `🔴 Peringatan Overbudget! Pengeluaran melebihi target jatah pro-rata s/d hari ke-${currentDay} sebesar Rp ${Math.abs(diff).toLocaleString('id-ID')}.`;
+      return `Peringatan Overbudget! Pengeluaran melebihi target jatah pro-rata s/d hari ke-${currentDay} sebesar Rp ${Math.abs(diff).toLocaleString('id-ID')}.`;
     }
   };
 
@@ -392,7 +391,6 @@ export default function Home() {
     <div className={`min-h-screen font-sans p-4 md:p-8 pb-28 md:pb-8 transition-colors duration-300 ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-6">
 
-        {/* Header Section */}
         <header className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 md:p-6 rounded-3xl border backdrop-blur-xl ${cardClass}`}>
           <div className="flex items-center justify-between w-full md:w-auto">
             <div>
@@ -430,8 +428,8 @@ export default function Home() {
 
           <div className="flex items-center justify-between md:justify-end gap-3">
             <div className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border font-bold text-xs ${isDailyOverbudget
-                ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-                : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400'
+              ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
+              : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400'
               }`}>
               <Flame className={`w-4 h-4 ${isDailyOverbudget ? 'text-rose-500' : 'fill-orange-500 animate-pulse'}`} />
               <span>{isDailyOverbudget ? 'Streak Pecah!' : `${streakDays} Hari Clean!`}</span>
@@ -459,7 +457,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 1. ACTIVE WALLETS GRID (DITARUH PALING ATAS DIPRIORITASIN DULU) 💳 */}
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <h2 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${subTextClass}`}>
@@ -473,9 +470,9 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory -mx-4 px-4">
             {loading ? (
-              <p className={`text-xs col-span-full ${subTextClass}`}>Memuat dompet...</p>
+              <p className={`text-xs ${subTextClass}`}>Memuat dompet...</p>
             ) : (
               wallets.map((w) => {
                 const calculatedBalance = getWalletCalculatedBalance(w.name);
@@ -483,16 +480,16 @@ export default function Home() {
                 return (
                   <div
                     key={w.id}
-                    className={`p-4 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
+                    className={`min-w-[140px] max-w-[160px] shrink-0 snap-align-start p-3.5 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border truncate max-w-[90px] ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
                         }`}>
                         {w.name}
                       </span>
-                      <Wallet className={`w-4 h-4 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
+                      <Wallet className={`w-4 h-4 shrink-0 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
                     </div>
-                    <div className="text-base sm:text-lg font-bold truncate">
+                    <div className="text-sm font-bold truncate">
                       Rp {calculatedBalance.toLocaleString('id-ID')}
                     </div>
                   </div>
@@ -502,20 +499,19 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 2. DAILY ALLOWANCE TRACKER WIDGET 🎯 */}
         <section className={`p-6 rounded-3xl border space-y-3 transition-all ${isDailyOverbudget
-            ? 'bg-rose-950/20 border-rose-500/40'
-            : isDark
-              ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
-              : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
+          ? 'bg-rose-950/20 border-rose-500/40'
+          : isDark
+            ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
+            : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
           }`}>
           <div className="flex justify-between items-center">
             <div className={`flex items-center gap-2 text-sm font-bold ${isDailyOverbudget ? 'text-rose-400' : isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
               <CalendarCheck className="w-4 h-4 text-emerald-500" /> Daily Limit Tracker (Hari Ini)
             </div>
             <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${isDailyOverbudget
-                ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                : 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+              ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+              : 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
               }`}>
               {isDailyOverbudget ? `Overbudget: -Rp ${overbudgetAmount.toLocaleString('id-ID')}` : `Sisa Limit: Rp ${remainingDailyLimit.toLocaleString('id-ID')}`}
             </span>
@@ -543,7 +539,6 @@ export default function Home() {
           )}
         </section>
 
-        {/* 3. GRAFIK DUAL LINE CHART HARIAN 📈 */}
         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
           <div className="flex justify-between items-center">
             <h2 className="text-sm font-bold flex items-center gap-2">
@@ -576,7 +571,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 4. BUDGET TRACKERS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <section className={`p-6 rounded-3xl border space-y-3 ${cardClass}`}>
             <div className="flex justify-between items-center">
@@ -632,7 +626,6 @@ export default function Home() {
           </section>
         </div>
 
-        {/* 5. WIDGET REKAPITULASI BULANAN & SMART INSIGHT (DITARUH PALING BAWAH) 📊 */}
         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="text-sm font-bold flex items-center gap-2">
@@ -671,7 +664,7 @@ export default function Home() {
 
             <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
               <span className={`text-[10px] uppercase font-bold flex items-center gap-1 ${subTextClass}`}>
-                ⚖️ Nett Cashflow
+                Nett Cashflow
               </span>
               <p className={`text-lg font-black mt-1 ${netSavingsThisMonth >= 0 ? 'text-emerald-400' : 'text-rose-500'}`}>
                 {netSavingsThisMonth >= 0 ? '+' : ''} Rp {netSavingsThisMonth.toLocaleString('id-ID')}
@@ -681,15 +674,14 @@ export default function Home() {
 
           <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed font-medium ${isDark ? 'bg-emerald-950/10 border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
             }`}>
-            💡 <strong>Smart Pro-Rata Evaluator:</strong> {getProRataSmartInsight()}
+            Smart Pro-Rata Evaluator: {getProRataSmartInsight()}
           </div>
         </section>
 
-        {/* Form Input Batch Nota (Desktop Only) */}
         <section className={`hidden lg:block p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-500" /> Catat Transaksi / Batch Nota 🧾
+              <TrendingUp className="w-4 h-4 text-emerald-500" /> Catat Transaksi / Batch Nota
             </h2>
             <button
               type="button"
@@ -750,7 +742,7 @@ export default function Home() {
               <div className={`p-3.5 rounded-2xl border space-y-2 animate-in fade-in duration-200 ${isDark ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200'
                 }`}>
                 <div className="flex justify-between items-center text-xs font-bold text-indigo-400">
-                  <span>🔀 Bagi Pengeluaran Ke 2 Dompet</span>
+                  <span>Bagi Pengeluaran Ke 2 Dompet</span>
                   <span>{splitRatio}% : {100 - splitRatio}%</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -836,8 +828,7 @@ export default function Home() {
 
       </div>
 
-      {/* STICKY BOTTOM NAVIGATION BAR MOBILE */}
-      <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 p-2.5 border-t backdrop-blur-xl flex justify-around items-center ${isDark ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400' : 'bg-white/90 border-slate-200 text-slate-600'
+      <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-6 py-2 border-t backdrop-blur-xl flex justify-between items-center ${isDark ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400' : 'bg-white/90 border-slate-200 text-slate-600'
         }`}>
         <Link
           href="/"
@@ -846,6 +837,16 @@ export default function Home() {
           <HomeIcon className="w-5 h-5" />
           <span>Dashboard</span>
         </Link>
+
+        <div className="relative -top-5">
+          <button
+            onClick={() => setIsMobileFormOpen(true)}
+            className="w-12 h-12 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 border border-emerald-400"
+          >
+            <Plus className="w-6 h-6 stroke-[3]" />
+          </button>
+        </div>
+
         <Link
           href="/history"
           className={`flex flex-col items-center gap-1 font-semibold text-[10px] ${subTextClass}`}
@@ -855,15 +856,6 @@ export default function Home() {
         </Link>
       </nav>
 
-      {/* Floating Action Button Mobile (+ Catat Instan) */}
-      <button
-        onClick={() => setIsMobileFormOpen(true)}
-        className="lg:hidden fixed bottom-16 right-5 p-3.5 bg-emerald-500 text-zinc-950 rounded-full shadow-2xl shadow-emerald-500/50 border border-emerald-400 active:scale-90 transition-all z-50 flex items-center gap-2 font-bold"
-      >
-        <Plus className="w-6 h-6 stroke-[3]" />
-      </button>
-
-      {/* Bottom Sheet Form Mobile */}
       {isMobileFormOpen && (
         <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end animate-in fade-in duration-200">
           <div className={`w-full p-6 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
@@ -952,14 +944,13 @@ export default function Home() {
                 disabled={submitting}
                 className="w-full mt-3 font-bold py-3.5 rounded-xl transition-all shadow-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
               >
-                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Catat Sekarang ✨'}
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Catat Sekarang'}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal Tooltip */}
       {activeTooltip && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-3xl w-full max-w-sm space-y-3 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900 shadow-xl'
@@ -980,7 +971,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Modal Tambah Dompet */}
       {isWalletModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-3xl w-full max-w-md space-y-4 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200 shadow-2xl'
@@ -1026,7 +1016,7 @@ export default function Home() {
                 disabled={submitting}
                 className="w-full mt-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Dompet ✨'}
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Dompet'}
               </button>
             </form>
           </div>
