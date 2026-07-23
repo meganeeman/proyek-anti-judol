@@ -275,7 +275,7 @@ export default function Home() {
   const budgetUsagePercentage = Math.min(Math.round((totalExpenseThisMonth / monthlyLimit) * 100), 100);
   const judolUsagePercentage = Math.min(Math.round((totalJudolExpense / judolLimit) * 100), 100);
 
-  // Data Dummy/Ringkas untuk Chart Pengeluaran 7 Transaksi Terakhir
+  // Data Chart Pengeluaran 7 Transaksi Terakhir
   const chartData = transactions
     .filter(t => t.type?.toUpperCase() === 'EXPENSE')
     .slice(0, 7)
@@ -296,28 +296,60 @@ export default function Home() {
     <div className={`min-h-screen font-sans p-4 md:p-8 pb-24 md:pb-8 transition-colors duration-300 ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-6">
 
-        {/* Header Section dengan Burger Menu di Sebelah Kiri 🍔 */}
+        {/* Header Section dengan Navbar Web + Burger Mobile */}
         <header className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 md:p-6 rounded-3xl border backdrop-blur-xl transition-all ${cardClass}`}>
-          <div className="flex items-center gap-3">
-            {/* Burger Menu Button (Kiri) */}
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className={`p-3 rounded-2xl border transition-all active:scale-95 flex items-center justify-center ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-emerald-400 hover:bg-zinc-700' : 'bg-slate-100 border-slate-300 text-emerald-600 hover:bg-slate-200'
-                }`}
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+          <div className="flex items-center justify-between w-full md:w-auto">
+            <div className="flex items-center gap-3">
+              {/* Burger Menu Button (HANYA UNTUK MOBILE lg:hidden) */}
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className={`lg:hidden p-2.5 rounded-2xl border transition-all active:scale-95 flex items-center justify-center ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-emerald-400' : 'bg-slate-100 border-slate-300 text-emerald-600'
+                  }`}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
 
-            <div>
-              <div className="flex items-center gap-2 text-emerald-500 text-xs font-semibold tracking-wider uppercase mb-0.5">
-                <ShieldCheck className="w-4 h-4" />
-                <span>Financial Health Zone</span>
+              <div>
+                <div className="flex items-center gap-2 text-emerald-500 text-xs font-semibold tracking-wider uppercase mb-0.5">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Financial Health Zone</span>
+                </div>
+                <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
+                  Anti-Judol Hub <Sparkles className="inline-block w-4 h-4 text-yellow-400" />
+                </h1>
               </div>
-              <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
-                Anti-Judol Hub <Sparkles className="inline-block w-4 h-4 text-yellow-400" />
-              </h1>
+            </div>
+
+            {/* Total Balance Mini Card Mobile */}
+            <div className={`md:hidden p-2.5 rounded-2xl border text-right ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
+              <span className={`text-[9px] font-medium block uppercase ${subTextClass}`}>Total Ammo</span>
+              <span className="text-sm font-black text-emerald-500">
+                Rp {(totalBalance / 1000).toFixed(0)}k
+              </span>
             </div>
           </div>
+
+          {/* NAVBAR WEB HORISONTAL (KHUSUS DESKTOP hidden lg:flex ✨) */}
+          <nav className="hidden lg:flex items-center p-1.5 rounded-2xl border bg-zinc-950/40 border-zinc-800/80 gap-1">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'dashboard'
+                  ? 'bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/20'
+                  : `${subTextClass} hover:text-zinc-200`
+                }`}
+            >
+              <HomeIcon className="w-3.5 h-3.5" /> Dashboard & Chart
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'history'
+                  ? 'bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/20'
+                  : `${subTextClass} hover:text-zinc-200`
+                }`}
+            >
+              <History className="w-3.5 h-3.5" /> Laporan Transaksi
+            </button>
+          </nav>
 
           <div className="flex items-center justify-between md:justify-end gap-3">
             {/* Streak Counter Badge 🔥 */}
@@ -335,8 +367,8 @@ export default function Home() {
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Total Balance Card dengan Interactive Tooltip Mobile ✨ */}
-            <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
+            {/* Total Balance Card (Desktop Only) */}
+            <div className={`hidden md:block p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center gap-1">
                 <span className={`text-[10px] font-medium block uppercase tracking-wider ${subTextClass}`}>Total Ammo</span>
                 <button
@@ -353,7 +385,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Dynamic Navigation Tabs Content */}
+        {/* Dynamic Content */}
         {activeTab === 'dashboard' ? (
           <>
             {/* Daily Allowance Tracker Widget */}
@@ -385,7 +417,7 @@ export default function Home() {
               </div>
             </section>
 
-            {/* GRAFIK CHART ANALYTICS (Fitur Baru Poin 2 📊) */}
+            {/* GRAFIK CHART ANALYTICS 📊 */}
             <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
               <div className="flex justify-between items-center">
                 <h2 className="text-sm font-bold flex items-center gap-2">
@@ -477,7 +509,7 @@ export default function Home() {
 
             </div>
 
-            {/* Form Input Desktop Only */}
+            {/* Form Input & Wallets Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
               <section className={`hidden lg:block lg:col-span-2 p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
                 <h2 className="text-base font-bold flex items-center gap-2">
@@ -669,9 +701,9 @@ export default function Home() {
 
       </div>
 
-      {/* LEFT SIDEBAR DRAWER (BURGER MENU KIRI 🍔) */}
+      {/* LEFT SIDEBAR DRAWER MOBILE 🍔 */}
       {isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex justify-start animate-in fade-in duration-200">
+        <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex justify-start animate-in fade-in duration-200">
           <div className={`w-72 h-full p-6 border-r flex flex-col justify-between animate-in slide-in-from-left duration-300 ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
             }`}>
             <div className="space-y-6">
@@ -685,7 +717,7 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Menu Navigation Items */}
+              {/* Menu Navigation Items Mobile */}
               <nav className="space-y-2">
                 <button
                   onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
@@ -716,7 +748,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Floating Action Button (FAB) Mobile */}
+      {/* Floating Action Button Mobile */}
       <button
         onClick={() => setIsMobileFormOpen(true)}
         className="lg:hidden fixed bottom-6 right-6 p-4 bg-emerald-500 text-zinc-950 rounded-full shadow-2xl shadow-emerald-500/50 border border-emerald-400 active:scale-90 transition-all z-40 flex items-center gap-2 font-bold"
@@ -819,7 +851,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Modal Popup Interactive Tooltip Mobile (Fix Poin 1 ✨) */}
+      {/* Modal Popup Tooltip Mobile */}
       {activeTooltip && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-3xl w-full max-w-sm space-y-3 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900 shadow-xl'
