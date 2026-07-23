@@ -401,7 +401,7 @@ export default function Home() {
                 <span>Financial Health Zone</span>
               </div>
               <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
-                Anti-Judol Hub <Sparkles className="inline-block w-4 h-4 text-yellow-400" />
+                Anti-Judol Hub
               </h1>
             </div>
 
@@ -828,7 +828,7 @@ export default function Home() {
                 disabled={submitting}
                 className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2 text-xs disabled:opacity-50"
               >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Semua Nota ✨'}
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Semua Nota'}
               </button>
             </div>
           </form>
