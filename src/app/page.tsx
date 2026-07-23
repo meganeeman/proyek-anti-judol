@@ -392,7 +392,7 @@ export default function Home() {
     <div className={`min-h-screen font-sans p-4 md:p-8 pb-28 md:pb-8 transition-colors duration-300 ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-6">
 
-        {/* Header Section (Clean: Tanpa Menu Burger) */}
+        {/* Header Section */}
         <header className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 md:p-6 rounded-3xl border backdrop-blur-xl ${cardClass}`}>
           <div className="flex items-center justify-between w-full md:w-auto">
             <div>
@@ -401,7 +401,7 @@ export default function Home() {
                 <span>Financial Health Zone</span>
               </div>
               <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
-                Anti-Judol Hub
+                Anti-Judol Hub <Sparkles className="inline-block w-4 h-4 text-yellow-400" />
               </h1>
             </div>
 
@@ -430,8 +430,8 @@ export default function Home() {
 
           <div className="flex items-center justify-between md:justify-end gap-3">
             <div className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border font-bold text-xs ${isDailyOverbudget
-              ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-              : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400'
+                ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
+                : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400'
               }`}>
               <Flame className={`w-4 h-4 ${isDailyOverbudget ? 'text-rose-500' : 'fill-orange-500 animate-pulse'}`} />
               <span>{isDailyOverbudget ? 'Streak Pecah!' : `${streakDays} Hari Clean!`}</span>
@@ -459,73 +459,63 @@ export default function Home() {
           </div>
         </header>
 
-        {/* WIDGET REKAPITULASI BULANAN & SMART INSIGHT */}
-        <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h2 className="text-sm font-bold flex items-center gap-2">
-              <PieChart className="w-4 h-4 text-emerald-500" /> Rekapitulasi Financial Bulanan
+        {/* 1. ACTIVE WALLETS GRID (DITARUH PALING ATAS DIPRIORITASIN DULU) 💳 */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h2 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${subTextClass}`}>
+              <CreditCard className="w-4 h-4 text-emerald-500" /> Active Wallets
             </h2>
-
-            <div className="flex items-center gap-2 bg-zinc-950/40 p-1.5 rounded-2xl border border-zinc-800">
-              <Filter className="w-3.5 h-3.5 text-emerald-500 ml-1" />
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className={`bg-transparent text-xs font-bold focus:outline-none ${isDark ? 'text-zinc-200' : 'text-slate-800'}`}
-              />
-            </div>
+            <button
+              onClick={() => setIsWalletModalOpen(true)}
+              className="text-xs text-emerald-500 hover:underline flex items-center gap-1 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 active:scale-95 transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" /> Dompet
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 text-emerald-500`}>
-                <ArrowDownCircle className="w-3.5 h-3.5" /> Total Pemasukan
-              </span>
-              <p className="text-lg font-black mt-1 text-emerald-500">
-                Rp {totalIncomeThisMonth.toLocaleString('id-ID')}
-              </p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {loading ? (
+              <p className={`text-xs col-span-full ${subTextClass}`}>Memuat dompet...</p>
+            ) : (
+              wallets.map((w) => {
+                const calculatedBalance = getWalletCalculatedBalance(w.name);
 
-            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 text-rose-400`}>
-                <ArrowUpCircle className="w-3.5 h-3.5" /> Total Pengeluaran
-              </span>
-              <p className="text-lg font-black mt-1 text-rose-400">
-                Rp {totalExpenseThisMonth.toLocaleString('id-ID')}
-              </p>
-            </div>
-
-            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
-              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 ${subTextClass}`}>
-                ⚖️ Nett Cashflow
-              </span>
-              <p className={`text-lg font-black mt-1 ${netSavingsThisMonth >= 0 ? 'text-emerald-400' : 'text-rose-500'}`}>
-                {netSavingsThisMonth >= 0 ? '+' : ''} Rp {netSavingsThisMonth.toLocaleString('id-ID')}
-              </p>
-            </div>
-          </div>
-
-          <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed font-medium ${isDark ? 'bg-emerald-950/10 border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-            }`}>
-            💡 <strong>Smart Pro-Rata Evaluator:</strong> {getProRataSmartInsight()}
+                return (
+                  <div
+                    key={w.id}
+                    className={`p-4 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
+                        }`}>
+                        {w.name}
+                      </span>
+                      <Wallet className={`w-4 h-4 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
+                    </div>
+                    <div className="text-base sm:text-lg font-bold truncate">
+                      Rp {calculatedBalance.toLocaleString('id-ID')}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </section>
 
-        {/* Daily Allowance Tracker Widget */}
+        {/* 2. DAILY ALLOWANCE TRACKER WIDGET 🎯 */}
         <section className={`p-6 rounded-3xl border space-y-3 transition-all ${isDailyOverbudget
-          ? 'bg-rose-950/20 border-rose-500/40'
-          : isDark
-            ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
-            : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
+            ? 'bg-rose-950/20 border-rose-500/40'
+            : isDark
+              ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
+              : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
           }`}>
           <div className="flex justify-between items-center">
             <div className={`flex items-center gap-2 text-sm font-bold ${isDailyOverbudget ? 'text-rose-400' : isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
               <CalendarCheck className="w-4 h-4 text-emerald-500" /> Daily Limit Tracker (Hari Ini)
             </div>
             <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${isDailyOverbudget
-              ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-              : 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+                ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                : 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
               }`}>
               {isDailyOverbudget ? `Overbudget: -Rp ${overbudgetAmount.toLocaleString('id-ID')}` : `Sisa Limit: Rp ${remainingDailyLimit.toLocaleString('id-ID')}`}
             </span>
@@ -553,7 +543,7 @@ export default function Home() {
           )}
         </section>
 
-        {/* GRAFIK DUAL LINE CHART HARIAN */}
+        {/* 3. GRAFIK DUAL LINE CHART HARIAN 📈 */}
         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
           <div className="flex justify-between items-center">
             <h2 className="text-sm font-bold flex items-center gap-2">
@@ -586,7 +576,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Budget Trackers Grid */}
+        {/* 4. BUDGET TRACKERS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <section className={`p-6 rounded-3xl border space-y-3 ${cardClass}`}>
             <div className="flex justify-between items-center">
@@ -642,199 +632,207 @@ export default function Home() {
           </section>
         </div>
 
-        {/* Form Input Batch Nota */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <section className={`hidden lg:block lg:col-span-3 p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-500" /> Catat Transaksi / Batch Nota 🧾
-              </h2>
-              <button
-                type="button"
-                onClick={() => setIsSplitBill(!isSplitBill)}
-                className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 ${isSplitBill ? 'bg-indigo-500 text-white border-indigo-400' : `${inputBgClass} hover:border-indigo-500/50`
-                  }`}
-              >
-                <Layers className="w-3.5 h-3.5" /> Split Bill {isSplitBill ? 'ON' : 'OFF'}
-              </button>
+        {/* 5. WIDGET REKAPITULASI BULANAN & SMART INSIGHT (DITARUH PALING BAWAH) 📊 */}
+        <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-sm font-bold flex items-center gap-2">
+              <PieChart className="w-4 h-4 text-emerald-500" /> Rekapitulasi Financial Bulanan
+            </h2>
+
+            <div className="flex items-center gap-2 bg-zinc-950/40 p-1.5 rounded-2xl border border-zinc-800">
+              <Filter className="w-3.5 h-3.5 text-emerald-500 ml-1" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className={`bg-transparent text-xs font-bold focus:outline-none ${isDark ? 'text-zinc-200' : 'text-slate-800'}`}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 text-emerald-500`}>
+                <ArrowDownCircle className="w-3.5 h-3.5" /> Total Pemasukan
+              </span>
+              <p className="text-lg font-black mt-1 text-emerald-500">
+                Rp {totalIncomeThisMonth.toLocaleString('id-ID')}
+              </p>
             </div>
 
-            <form className="space-y-4" onSubmit={handleAddTransaction}>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className={`text-xs block ${subTextClass}`}>Waktu</label>
+            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 text-rose-400`}>
+                <ArrowUpCircle className="w-3.5 h-3.5" /> Total Pengeluaran
+              </span>
+              <p className="text-lg font-black mt-1 text-rose-400">
+                Rp {totalExpenseThisMonth.toLocaleString('id-ID')}
+              </p>
+            </div>
+
+            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
+              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 ${subTextClass}`}>
+                ⚖️ Nett Cashflow
+              </span>
+              <p className={`text-lg font-black mt-1 ${netSavingsThisMonth >= 0 ? 'text-emerald-400' : 'text-rose-500'}`}>
+                {netSavingsThisMonth >= 0 ? '+' : ''} Rp {netSavingsThisMonth.toLocaleString('id-ID')}
+              </p>
+            </div>
+          </div>
+
+          <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed font-medium ${isDark ? 'bg-emerald-950/10 border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}>
+            💡 <strong>Smart Pro-Rata Evaluator:</strong> {getProRataSmartInsight()}
+          </div>
+        </section>
+
+        {/* Form Input Batch Nota (Desktop Only) */}
+        <section className={`hidden lg:block p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-500" /> Catat Transaksi / Batch Nota 🧾
+            </h2>
+            <button
+              type="button"
+              onClick={() => setIsSplitBill(!isSplitBill)}
+              className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 ${isSplitBill ? 'bg-indigo-500 text-white border-indigo-400' : `${inputBgClass} hover:border-indigo-500/50`
+                }`}
+            >
+              <Layers className="w-3.5 h-3.5" /> Split Bill {isSplitBill ? 'ON' : 'OFF'}
+            </button>
+          </div>
+
+          <form className="space-y-4" onSubmit={handleAddTransaction}>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className={`text-xs block ${subTextClass}`}>Waktu</label>
+                  <button
+                    type="button"
+                    onClick={() => setTransactionDate(getCurrentLocalDateTime())}
+                    className="text-[10px] text-emerald-500 hover:underline flex items-center gap-0.5"
+                  >
+                    <Clock className="w-2.5 h-2.5" /> Now
+                  </button>
+                </div>
+                <input
+                  type="datetime-local"
+                  value={transactionDate}
+                  onChange={(e) => setTransactionDate(e.target.value)}
+                  className={`w-full border rounded-xl px-2.5 py-2 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                />
+              </div>
+              <div>
+                <label className={`text-xs mb-1 block ${subTextClass}`}>Tipe</label>
+                <select
+                  value={transactionType}
+                  onChange={(e) => setTransactionType(e.target.value)}
+                  className={`w-full border rounded-xl px-2.5 py-2 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                >
+                  <option value="EXPENSE">Keluar</option>
+                  <option value="INCOME">Masuk</option>
+                </select>
+              </div>
+              <div>
+                <label className={`text-xs mb-1 block ${subTextClass}`}>Dompet Utama</label>
+                <select
+                  value={selectedWallet}
+                  onChange={(e) => setSelectedWallet(e.target.value)}
+                  className={`w-full border rounded-xl px-2.5 py-2 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                >
+                  {wallets.map(w => (
+                    <option key={w.id} value={w.name}>{w.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {isSplitBill && (
+              <div className={`p-3.5 rounded-2xl border space-y-2 animate-in fade-in duration-200 ${isDark ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200'
+                }`}>
+                <div className="flex justify-between items-center text-xs font-bold text-indigo-400">
+                  <span>🔀 Bagi Pengeluaran Ke 2 Dompet</span>
+                  <span>{splitRatio}% : {100 - splitRatio}%</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className={`text-[10px] block ${subTextClass}`}>Dompet Kedua</span>
+                    <select
+                      value={secondaryWallet}
+                      onChange={(e) => setSecondaryWallet(e.target.value)}
+                      className={`w-full border rounded-xl px-2.5 py-1.5 text-xs focus:outline-none ${inputBgClass}`}
+                    >
+                      {wallets.map(w => (
+                        <option key={w.id} value={w.name}>{w.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <span className={`text-[10px] block ${subTextClass}`}>Porsi Dompet Utama</span>
+                    <input
+                      type="range"
+                      min="10"
+                      max="90"
+                      step="10"
+                      value={splitRatio}
+                      onChange={(e) => setSplitRatio(Number(e.target.value))}
+                      className="w-full accent-indigo-500 mt-2"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className={`text-xs block font-bold ${subTextClass}`}>Baris Barang Belanjaan</label>
+              {items.map((item, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder={`Item ${index + 1} (misal: Nasi Goreng / Depo)`}
+                    value={item.description}
+                    onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                    className={`flex-1 border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder="Rp 0"
+                    value={item.amount}
+                    onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
+                    className={`w-36 border rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                    required
+                  />
+                  {items.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => setTransactionDate(getCurrentLocalDateTime())}
-                      className="text-[10px] text-emerald-500 hover:underline flex items-center gap-0.5"
+                      onClick={() => handleRemoveItemRow(index)}
+                      className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
                     >
-                      <Clock className="w-2.5 h-2.5" /> Now
+                      <Trash2 className="w-4 h-4" />
                     </button>
-                  </div>
-                  <input
-                    type="datetime-local"
-                    value={transactionDate}
-                    onChange={(e) => setTransactionDate(e.target.value)}
-                    className={`w-full border rounded-xl px-2.5 py-2 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
-                  />
+                  )}
                 </div>
-                <div>
-                  <label className={`text-xs mb-1 block ${subTextClass}`}>Tipe</label>
-                  <select
-                    value={transactionType}
-                    onChange={(e) => setTransactionType(e.target.value)}
-                    className={`w-full border rounded-xl px-2.5 py-2 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
-                  >
-                    <option value="EXPENSE">Keluar</option>
-                    <option value="INCOME">Masuk</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={`text-xs mb-1 block ${subTextClass}`}>Dompet Utama</label>
-                  <select
-                    value={selectedWallet}
-                    onChange={(e) => setSelectedWallet(e.target.value)}
-                    className={`w-full border rounded-xl px-2.5 py-2 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
-                  >
-                    {wallets.map(w => (
-                      <option key={w.id} value={w.name}>{w.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              ))}
+            </div>
 
-              {isSplitBill && (
-                <div className={`p-3.5 rounded-2xl border space-y-2 animate-in fade-in duration-200 ${isDark ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200'
-                  }`}>
-                  <div className="flex justify-between items-center text-xs font-bold text-indigo-400">
-                    <span>🔀 Bagi Pengeluaran Ke 2 Dompet</span>
-                    <span>{splitRatio}% : {100 - splitRatio}%</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className={`text-[10px] block ${subTextClass}`}>Dompet Kedua</span>
-                      <select
-                        value={secondaryWallet}
-                        onChange={(e) => setSecondaryWallet(e.target.value)}
-                        className={`w-full border rounded-xl px-2.5 py-1.5 text-xs focus:outline-none ${inputBgClass}`}
-                      >
-                        {wallets.map(w => (
-                          <option key={w.id} value={w.name}>{w.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <span className={`text-[10px] block ${subTextClass}`}>Porsi Dompet Utama</span>
-                      <input
-                        type="range"
-                        min="10"
-                        max="90"
-                        step="10"
-                        value={splitRatio}
-                        onChange={(e) => setSplitRatio(Number(e.target.value))}
-                        className="w-full accent-indigo-500 mt-2"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className={`text-xs block font-bold ${subTextClass}`}>Baris Barang Belanjaan</label>
-                {items.map((item, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder={`Item ${index + 1} (misal: Nasi Goreng / Depo)`}
-                      value={item.description}
-                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                      className={`flex-1 border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
-                      required
-                    />
-                    <input
-                      type="text"
-                      placeholder="Rp 0"
-                      value={item.amount}
-                      onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
-                      className={`w-36 border rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
-                      required
-                    />
-                    {items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItemRow(index)}
-                        className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleAddItemRow}
-                  className="flex-1 py-2.5 rounded-xl border border-dashed border-emerald-500/40 text-emerald-500 text-xs font-bold hover:bg-emerald-500/10 transition-all flex items-center justify-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Baris Barang Nota Baru
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2 text-xs disabled:opacity-50"
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Semua Nota'}
-                </button>
-              </div>
-            </form>
-          </section>
-
-          {/* Active Wallets Grid */}
-          <section className="lg:col-span-2 space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <h2 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${subTextClass}`}>
-                <CreditCard className="w-4 h-4 text-emerald-500" /> Active Wallets
-              </h2>
+            <div className="flex gap-2 pt-1">
               <button
-                onClick={() => setIsWalletModalOpen(true)}
-                className="text-xs text-emerald-500 hover:underline flex items-center gap-1 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 active:scale-95 transition-all"
+                type="button"
+                onClick={handleAddItemRow}
+                className="flex-1 py-2.5 rounded-xl border border-dashed border-emerald-500/40 text-emerald-500 text-xs font-bold hover:bg-emerald-500/10 transition-all flex items-center justify-center gap-1"
               >
-                <Plus className="w-3.5 h-3.5" /> Dompet
+                <Plus className="w-3.5 h-3.5" /> Baris Barang Nota Baru
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2 text-xs disabled:opacity-50"
+              >
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Semua Nota ✨'}
               </button>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
-              {loading ? (
-                <p className={`text-xs ${subTextClass}`}>Memuat dompet...</p>
-              ) : (
-                wallets.map((w) => {
-                  const calculatedBalance = getWalletCalculatedBalance(w.name);
-
-                  return (
-                    <div
-                      key={w.id}
-                      className={`p-4 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
-                          }`}>
-                          {w.name}
-                        </span>
-                        <Wallet className={`w-4 h-4 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
-                      </div>
-                      <div className="text-lg font-bold">
-                        Rp {calculatedBalance.toLocaleString('id-ID')}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </section>
-        </div>
+          </form>
+        </section>
 
       </div>
 
