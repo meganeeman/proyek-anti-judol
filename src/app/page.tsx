@@ -11,36 +11,61 @@ import {
   TrendingUp,
   Receipt,
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  Loader2,
+  X,
+  Target,
+  AlertCircle
 } from 'lucide-react';
 
 interface WalletItem {
-  id: string;
+  id: number;
   name: string;
   balance: number;
 }
 
 interface Transaction {
-  id: string;
-  date: string;
+  id: number;
+  created_at: string;
   description: string;
   amount: number;
   type: string;
   category: string;
-  wallet?: string;
+  wallet_name: string;
 }
 
 export default function Home() {
   const [wallets, setWallets] = useState<WalletItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [monthlyLimit, setMonthlyLimit] = useState(1500000);
+  const [judolLimit, setJudolLimit] = useState(300000);
+
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+
+  // Form Transaction State
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+  const [type, setType] = useState('EXPENSE');
+  const [category, setCategory] = useState('Survival Mode');
+  const [selectedWallet, setSelectedWallet] = useState('');
+
+  // Form Wallet State
+  const [newWalletName, setNewWalletName] = useState('');
+  const [newWalletBalance, setNewWalletBalance] = useState('');
 
   const fetchData = async () => {
     setLoading(true);
 
     // Fetch Wallets
-    const { data: walletData } = await supabase.from('wallets').select('*');
-    if (walletData) setWallets(walletData);
+    const { data: walletData } = await supabase.from('wallets').select('*').order('id', { ascending: true });
+    if (walletData) {
+      setWallets(walletData);
+      if (walletData.length > 0 && !selectedWallet) {
+        setSelectedWallet(walletData[0].name);
+      }
+    }
 
     // Fetch Transactions
     const { data: transData } = await supabase
@@ -50,6 +75,13 @@ export default function Home() {
 
     if (transData) setTransactions(transData);
 
+    // Fetch Budget Settings
+    const { data: budgetData } = await supabase.from('budgets').select('*').limit(1).single();
+    if (budgetData) {
+      setMonthlyLimit(Number(budgetData.monthly_limit));
+      setJudolLimit(Number(budgetData.judol_limit));
+    }
+
     setLoading(false);
   };
 
@@ -57,7 +89,84 @@ export default function Home() {
     fetchData();
   }, []);
 
+  // Handle Tambah Transaksi
+  const handleAddTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!description || !amount || !selectedWallet) {
+      alert('Isi semua bidang dulu ya, sayang!');
+      return;
+    }
+
+    setSubmitting(true);
+    const numericAmount = Number(amount);
+
+    const { error: transError } = await supabase.from('transactions').insert([
+      {
+        description,
+        amount: numericAmount,
+        type,
+        category,
+        wallet_name: selectedWallet,
+      }
+    ]);
+
+    if (transError) {
+      alert('Gagal simpan transaksi: ' + transError.message);
+      setSubmitting(false);
+      return;
+    }
+
+    // Update Saldo Dompet
+    const targetWallet = wallets.find(w => w.name === selectedWallet);
+    if (targetWallet) {
+      const newBalance = type === 'INCOME'
+        ? Number(targetWallet.balance) + numericAmount
+        : Number(targetWallet.balance) - numericAmount;
+
+      await supabase
+        .from('wallets')
+        .update({ balance: newBalance })
+        .eq('id', targetWallet.id);
+    }
+
+    setDescription('');
+    setAmount('');
+    setSubmitting(false);
+    fetchData();
+  };
+
+  // Handle Tambah Dompet Baru
+  const handleAddWallet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWalletName || !newWalletBalance) return;
+
+    setSubmitting(true);
+    const { error } = await supabase.from('wallets').insert([
+      {
+        name: newWalletName,
+        balance: Number(newWalletBalance),
+      }
+    ]);
+
+    if (error) {
+      alert('Gagal menambah dompet: ' + error.message);
+    } else {
+      setNewWalletName('');
+      setNewWalletBalance('');
+      setIsWalletModalOpen(false);
+      fetchData();
+    }
+    setSubmitting(false);
+  };
+
+  // Kalkulasi Keuangan
   const totalBalance = wallets.reduce((acc, curr) => acc + (Number(curr.balance) || 0), 0);
+
+  const totalExpenseThisMonth = transactions
+    .filter(t => t.type?.toUpperCase() === 'EXPENSE')
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  const budgetUsagePercentage = Math.min(Math.round((totalExpenseThisMonth / monthlyLimit) * 100), 100);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans p-4 md:p-8">
@@ -85,20 +194,49 @@ export default function Home() {
           </div>
         </header>
 
+        {/* Budget Tracker Widget */}
+        <section className="p-6 rounded-3xl bg-gradient-to-r from-zinc-900 to-zinc-900/80 border border-zinc-800/80 space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2 text-sm font-bold text-zinc-200">
+              <Target className="w-4 h-4 text-emerald-400" /> Monthly Limit Tracker
+            </div>
+            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+              {budgetUsagePercentage}% Terpakai
+            </span>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-zinc-400 font-medium">
+              <span>Pengeluaran: Rp {totalExpenseThisMonth.toLocaleString('id-ID')}</span>
+              <span>Limit: Rp {monthlyLimit.toLocaleString('id-ID')}</span>
+            </div>
+            <div className="w-full h-3 bg-zinc-950 rounded-full overflow-hidden p-0.5 border border-zinc-800">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${budgetUsagePercentage > 85 ? 'bg-rose-500' : budgetUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-400'
+                  }`}
+                style={{ width: `${budgetUsagePercentage}%` }}
+              ></div>
+            </div>
+          </div>
+        </section>
+
         {/* Wallets Grid */}
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-emerald-400" /> Active Wallets
             </h2>
-            <button className="text-xs text-emerald-400 hover:underline flex items-center gap-1 font-medium">
-              <Plus className="w-3 h-3" /> Tambah Dompet
+            <button
+              onClick={() => setIsWalletModalOpen(true)}
+              className="text-xs text-emerald-400 hover:underline flex items-center gap-1 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 active:scale-95 transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" /> Tambah Dompet
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {wallets.length === 0 && !loading ? (
-              <p className="text-xs text-zinc-500 col-span-3">Belum ada data dompet di Supabase.</p>
+            {loading ? (
+              <p className="text-xs text-zinc-500 col-span-3">Memuat dompet...</p>
             ) : (
               wallets.map((w) => (
                 <div
@@ -111,7 +249,7 @@ export default function Home() {
                     </span>
                     <Wallet className="w-4 h-4 text-zinc-500 group-hover:text-emerald-400 transition-colors" />
                   </div>
-                  <div className="text-lg font-bold text-zinc-100">
+                  <div className="text-xl font-bold text-zinc-100">
                     Rp {(Number(w.balance) || 0).toLocaleString('id-ID')}
                   </div>
                 </div>
@@ -129,13 +267,16 @@ export default function Home() {
               <TrendingUp className="w-4 h-4 text-emerald-400" /> Catat Transaksi
             </h2>
 
-            <form className="space-y-3" onSubmit={(e) => e.preventDefault()}>
+            <form className="space-y-3" onSubmit={handleAddTransaction}>
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Keterangan</label>
                 <input
                   type="text"
                   placeholder="misal: Kopi / Nasi Goreng"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500 transition-all"
+                  required
                 />
               </div>
 
@@ -144,21 +285,35 @@ export default function Home() {
                 <input
                   type="number"
                   placeholder="0"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500 transition-all"
+                  required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-zinc-400 mb-1 block">Tipe</label>
-                  <select className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500">
-                    <option value="EXPENSE">Survival (Keluar)</option>
-                    <option value="INCOME">Income (Masuk)</option>
+                  <select
+                    value={type}
+                    onChange={(e) => {
+                      setType(e.target.value);
+                      setCategory(e.target.value === 'EXPENSE' ? 'Survival Mode' : 'Main Cashflow');
+                    }}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="EXPENSE">Keluar</option>
+                    <option value="INCOME">Masuk</option>
                   </select>
                 </div>
                 <div>
                   <label className="text-xs text-zinc-400 mb-1 block">Dompet</label>
-                  <select className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500">
+                  <select
+                    value={selectedWallet}
+                    onChange={(e) => setSelectedWallet(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  >
                     {wallets.map(w => (
                       <option key={w.id} value={w.name}>{w.name}</option>
                     ))}
@@ -168,9 +323,10 @@ export default function Home() {
 
               <button
                 type="submit"
-                className="w-full mt-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
+                disabled={submitting}
+                className="w-full mt-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                Lock It In ✨
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Lock It In ✨'}
               </button>
             </form>
           </section>
@@ -188,7 +344,7 @@ export default function Home() {
                 <p className="text-xs text-zinc-500">Belum ada transaksi di Supabase.</p>
               ) : (
                 transactions.map((t) => {
-                  const isIncome = t.type?.toLowerCase() === 'income';
+                  const isIncome = t.type?.toUpperCase() === 'INCOME';
                   return (
                     <div
                       key={t.id}
@@ -207,7 +363,7 @@ export default function Home() {
                             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
                               {t.category || 'General'}
                             </span>
-                            {t.wallet && <span className="text-[10px] text-zinc-500">• {t.wallet}</span>}
+                            {t.wallet_name && <span className="text-[10px] text-zinc-500">• {t.wallet_name}</span>}
                           </div>
                         </div>
                       </div>
@@ -228,6 +384,58 @@ export default function Home() {
         </div>
 
       </div>
+
+      {/* Modal Popup Tambah Dompet */}
+      {isWalletModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl w-full max-w-md space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setIsWalletModalOpen(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-100 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-emerald-400" /> Tambah Dompet Baru
+            </h3>
+
+            <form className="space-y-3" onSubmit={handleAddWallet}>
+              <div>
+                <label className="text-xs text-zinc-400 mb-1 block">Nama Dompet / Bank</label>
+                <input
+                  type="text"
+                  placeholder="misal: BCA / GoPay / Seabank"
+                  value={newWalletName}
+                  onChange={(e) => setNewWalletName(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-zinc-400 mb-1 block">Saldo Awal (Rp)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={newWalletBalance}
+                  onChange={(e) => setNewWalletBalance(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full mt-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Dompet ✨'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
