@@ -4,6 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import confetti from 'canvas-confetti';
 import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip
+} from 'recharts';
+import {
   Wallet,
   ArrowUpRight,
   ArrowDownLeft,
@@ -22,7 +30,11 @@ import {
   Sun,
   Moon,
   Flame,
-  HelpCircle
+  HelpCircle,
+  Menu,
+  BarChart3,
+  History,
+  Home as HomeIcon
 } from 'lucide-react';
 
 interface WalletItem {
@@ -54,8 +66,13 @@ export default function Home() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Navigation & Modal State
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history'>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   // Theme State
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -110,7 +127,6 @@ export default function Home() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  // Cek kata kunci secara otomatis pas ngetik keterangan
   const handleDescriptionChange = (text: string) => {
     setDescription(text);
     const lowerText = text.toLowerCase();
@@ -125,7 +141,6 @@ export default function Home() {
     }
   };
 
-  // Trigger Efek Confetti Selebrasi 🎉
   const triggerConfetti = () => {
     confetti({
       particleCount: 80,
@@ -134,7 +149,6 @@ export default function Home() {
     });
   };
 
-  // Handle Tambah Transaksi
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description || !amount || !selectedWallet) {
@@ -162,7 +176,6 @@ export default function Home() {
       return;
     }
 
-    // Update Saldo Dompet
     const targetWallet = wallets.find(w => w.name === selectedWallet);
     if (targetWallet) {
       const newBalance = type === 'INCOME'
@@ -175,7 +188,6 @@ export default function Home() {
         .eq('id', targetWallet.id);
     }
 
-    // Selebrasi kalau hemat (bukan transaksi judol)
     if (!isJudolDetected) {
       triggerConfetti();
     }
@@ -188,7 +200,6 @@ export default function Home() {
     fetchData();
   };
 
-  // Handle Tambah Dompet Baru
   const handleAddWallet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWalletName || !newWalletBalance) return;
@@ -213,25 +224,24 @@ export default function Home() {
     setSubmitting(false);
   };
 
-  // KALKULASI STREAK HARI BEBAS SLOT 🔥
+  // Streak Counter
   const calculateStreakDays = () => {
     const judolTransactions = transactions.filter(t =>
       t.type?.toUpperCase() === 'EXPENSE' &&
       (t.category === 'Special Recovery Tracker' || SENSITIVE_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw)))
     );
 
-    if (judolTransactions.length === 0) return 30; // Jika tidak ada, anggap 30 hari bersih!
+    if (judolTransactions.length === 0) return 30;
 
     const lastJudolDate = new Date(judolTransactions[0].created_at);
     const today = new Date();
     const diffTime = Math.abs(today.getTime() - lastJudolDate.getTime());
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const streakDays = calculateStreakDays();
 
-  // Kalkulasi Keuangan
+  // Financial Calculations
   const totalBalance = wallets.reduce((acc, curr) => acc + (Number(curr.balance) || 0), 0);
 
   const totalExpenseThisMonth = transactions
@@ -247,7 +257,6 @@ export default function Home() {
     })
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-  // Kalkulasi Limit Harian
   const todayStr = new Date().toISOString().split('T')[0];
   const todayExpense = transactions
     .filter(t => {
@@ -266,6 +275,16 @@ export default function Home() {
   const budgetUsagePercentage = Math.min(Math.round((totalExpenseThisMonth / monthlyLimit) * 100), 100);
   const judolUsagePercentage = Math.min(Math.round((totalJudolExpense / judolLimit) * 100), 100);
 
+  // Data Dummy/Ringkas untuk Chart Pengeluaran 7 Transaksi Terakhir
+  const chartData = transactions
+    .filter(t => t.type?.toUpperCase() === 'EXPENSE')
+    .slice(0, 7)
+    .reverse()
+    .map(t => ({
+      name: t.description.length > 8 ? t.description.substring(0, 8) + '...' : t.description,
+      amount: Number(t.amount) || 0
+    }));
+
   // Dynamic Theme Styling Classes
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-zinc-950 text-zinc-100' : 'bg-slate-100 text-slate-900';
@@ -277,24 +296,32 @@ export default function Home() {
     <div className={`min-h-screen font-sans p-4 md:p-8 pb-24 md:pb-8 transition-colors duration-300 ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-6">
 
-        {/* Header Section */}
-        <header className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl border backdrop-blur-xl transition-all ${cardClass}`}>
-          <div>
-            <div className="flex items-center gap-2 text-emerald-500 text-xs font-semibold tracking-wider uppercase mb-1">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Financial Health Zone</span>
+        {/* Header Section dengan Burger Menu di Sebelah Kiri 🍔 */}
+        <header className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 md:p-6 rounded-3xl border backdrop-blur-xl transition-all ${cardClass}`}>
+          <div className="flex items-center gap-3">
+            {/* Burger Menu Button (Kiri) */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className={`p-3 rounded-2xl border transition-all active:scale-95 flex items-center justify-center ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-emerald-400 hover:bg-zinc-700' : 'bg-slate-100 border-slate-300 text-emerald-600 hover:bg-slate-200'
+                }`}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2 text-emerald-500 text-xs font-semibold tracking-wider uppercase mb-0.5">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Financial Health Zone</span>
+              </div>
+              <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
+                Anti-Judol Hub <Sparkles className="inline-block w-4 h-4 text-yellow-400" />
+              </h1>
             </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-              Anti-Judol Hub <Sparkles className="inline-block w-5 h-5 text-yellow-400" />
-            </h1>
-            <p className={`text-sm mt-1 ${subTextClass}`}>
-              Smart Financial Tracker • Bebas Slot, Dompet Sehat!
-            </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Streak Counter Counter Badge 🔥 */}
-            <div className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-orange-500/30 text-orange-400 font-bold text-xs" title="Hari beruntun bersih dari judi online!">
+          <div className="flex items-center justify-between md:justify-end gap-3">
+            {/* Streak Counter Badge 🔥 */}
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-orange-500/30 text-orange-400 font-bold text-xs">
               <Flame className="w-4 h-4 fill-orange-500 animate-pulse" />
               <span>{streakDays} Hari Clean!</span>
             </div>
@@ -302,279 +329,294 @@ export default function Home() {
             {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
-              className={`p-3 rounded-2xl border transition-all active:scale-95 flex items-center justify-center ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-yellow-400 hover:bg-zinc-700' : 'bg-slate-200 border-slate-300 text-indigo-600 hover:bg-slate-300'
+              className={`p-2.5 rounded-2xl border transition-all active:scale-95 flex items-center justify-center ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-yellow-400 hover:bg-zinc-700' : 'bg-slate-200 border-slate-300 text-indigo-600 hover:bg-slate-300'
                 }`}
-              title="Ganti Tema Dark/Light"
             >
-              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Total Balance Card */}
-            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
+            {/* Total Balance Card dengan Interactive Tooltip Mobile ✨ */}
+            <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center gap-1">
-                <span className={`text-xs font-medium block ${subTextClass}`}>Total Ammo</span>
-                <span className="cursor-pointer" title="Total akumulasi nilai bersih kekayaan dari seluruh dompet aktif kamu.">
-                  <HelpCircle className="w-3 h-3 text-zinc-500" />
-                </span>
+                <span className={`text-[10px] font-medium block uppercase tracking-wider ${subTextClass}`}>Total Ammo</span>
+                <button
+                  onClick={() => setActiveTooltip('totalAmmo')}
+                  className="text-zinc-500 hover:text-emerald-400 p-0.5"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <span className="text-2xl md:text-3xl font-black text-emerald-500 tracking-tight">
+              <span className="text-xl md:text-2xl font-black text-emerald-500 tracking-tight">
                 {loading ? 'Loading...' : `Rp ${totalBalance.toLocaleString('id-ID')}`}
               </span>
             </div>
           </div>
         </header>
 
-        {/* Daily Allowance Tracker Widget */}
-        <section className={`p-6 rounded-3xl border space-y-3 ${isDark
-            ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
-            : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
-          }`}>
-          <div className="flex justify-between items-center">
-            <div className={`flex items-center gap-2 text-sm font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
-              <CalendarCheck className="w-4 h-4 text-emerald-500" /> Daily Limit Tracker (Hari Ini)
-            </div>
-            <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-              Sisa Limit: Rp {remainingDailyLimit.toLocaleString('id-ID')}
-            </span>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
-              <span>Terpakai Hari Ini: Rp {todayExpense.toLocaleString('id-ID')}</span>
-              <span>Jatah Harian (+Reward): Rp {totalDailyLimit.toLocaleString('id-ID')}</span>
-            </div>
-            <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${dailyUsagePercentage > 85 ? 'bg-rose-500' : dailyUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-500'
-                  }`}
-                style={{ width: `${dailyUsagePercentage}%` }}
-              ></div>
-            </div>
-          </div>
-        </section>
-
-        {/* Budget Trackers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-          {/* Monthly Budget Tracker */}
-          <section className={`p-6 rounded-3xl border space-y-3 ${cardClass}`}>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-sm font-bold">
-                <Target className="w-4 h-4 text-emerald-500" /> Monthly Budget Limit
-              </div>
-              <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                {budgetUsagePercentage}% Terpakai
-              </span>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
-                <span>Pengeluaran: Rp {totalExpenseThisMonth.toLocaleString('id-ID')}</span>
-                <span>Limit: Rp {monthlyLimit.toLocaleString('id-ID')}</span>
-              </div>
-              <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${budgetUsagePercentage > 85 ? 'bg-rose-500' : budgetUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-500'
-                    }`}
-                  style={{ width: `${budgetUsagePercentage}%` }}
-                ></div>
-              </div>
-            </div>
-          </section>
-
-          {/* Special Recovery Limit (High-Contrast Red Coral) */}
-          <section className={`p-6 rounded-3xl border space-y-3 ${isDark ? 'bg-zinc-900/60 border-rose-500/40' : 'bg-white border-rose-300 shadow-sm'}`}>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-sm font-bold text-rose-400">
-                <AlertTriangle className="w-4 h-4 text-rose-500" /> Recovery Budget (Max 300k)
-                <span className="cursor-pointer" title="Alokasi batas darurat pemulihan secara bertahap.">
-                  <HelpCircle className="w-3.5 h-3.5 text-rose-400/70" />
+        {/* Dynamic Navigation Tabs Content */}
+        {activeTab === 'dashboard' ? (
+          <>
+            {/* Daily Allowance Tracker Widget */}
+            <section className={`p-6 rounded-3xl border space-y-3 ${isDark
+                ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
+                : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
+              }`}>
+              <div className="flex justify-between items-center">
+                <div className={`flex items-center gap-2 text-sm font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                  <CalendarCheck className="w-4 h-4 text-emerald-500" /> Daily Limit Tracker (Hari Ini)
+                </div>
+                <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                  Sisa Limit: Rp {remainingDailyLimit.toLocaleString('id-ID')}
                 </span>
               </div>
-              <span className="text-xs font-bold text-rose-400 bg-rose-500/15 px-3 py-1 rounded-full border border-rose-500/30">
-                {judolUsagePercentage}% Terpakai
-              </span>
-            </div>
 
-            <div className="space-y-1.5">
-              <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
-                <span>Terpakai: Rp {totalJudolExpense.toLocaleString('id-ID')}</span>
-                <span>Max: Rp {judolLimit.toLocaleString('id-ID')}</span>
+              <div className="space-y-1.5">
+                <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
+                  <span>Terpakai Hari Ini: Rp {todayExpense.toLocaleString('id-ID')}</span>
+                  <span>Jatah Harian (+Reward): Rp {totalDailyLimit.toLocaleString('id-ID')}</span>
+                </div>
+                <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${dailyUsagePercentage > 85 ? 'bg-rose-500' : dailyUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-500'
+                      }`}
+                    style={{ width: `${dailyUsagePercentage}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${judolUsagePercentage > 80 ? 'bg-rose-500' : judolUsagePercentage > 40 ? 'bg-amber-500' : 'bg-emerald-500'
-                    }`}
-                  style={{ width: `${judolUsagePercentage}%` }}
-                ></div>
+            </section>
+
+            {/* GRAFIK CHART ANALYTICS (Fitur Baru Poin 2 📊) */}
+            <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
+              <div className="flex justify-between items-center">
+                <h2 className="text-sm font-bold flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-emerald-500" /> Tren Pengeluaran Terakhir
+                </h2>
+                <span className={`text-xs ${subTextClass}`}>7 Transaksi Terakhir</span>
               </div>
-            </div>
-          </section>
 
-        </div>
+              {chartData.length === 0 ? (
+                <p className={`text-xs py-8 text-center ${subTextClass}`}>Belum ada grafik pengeluaran.</p>
+              ) : (
+                <div className="h-48 w-full pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <XAxis dataKey="name" stroke={isDark ? '#71717a' : '#64748b'} fontSize={11} tickLine={false} />
+                      <YAxis stroke={isDark ? '#71717a' : '#64748b'} fontSize={10} tickLine={false} width={40} />
+                      <RechartsTooltip
+                        contentStyle={{
+                          backgroundColor: isDark ? '#18181b' : '#ffffff',
+                          borderColor: isDark ? '#27272a' : '#e2e8f0',
+                          borderRadius: '12px',
+                          color: isDark ? '#f4f4f5' : '#0f172a'
+                        }}
+                      />
+                      <Bar dataKey="amount" fill="#10b981" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </section>
 
-        {/* Rewarding System Banner */}
-        <section className={`p-5 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isDark
-            ? 'bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-900 border-emerald-500/30'
-            : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
-          }`}>
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-500">
-              <Gift className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold flex items-center gap-2">
-                Rewarding System Active <Sparkles className="w-4 h-4 text-yellow-400" />
-              </h3>
-              <p className={`text-xs mt-0.5 ${subTextClass}`}>
-                Sisa hemat recovery otomatis menambah limit harian kamu sebesar <strong className="text-emerald-500">+Rp {Math.round(rewardBonus / 30).toLocaleString('id-ID')}/hari</strong>!
-              </p>
-            </div>
-          </div>
-          <div className={`px-4 py-2.5 rounded-2xl border text-right w-full sm:w-auto ${isDark ? 'bg-zinc-950/80 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'
-            }`}>
-            <span className={`text-[10px] block font-semibold uppercase tracking-wider ${subTextClass}`}>Potensi Bonus Reward</span>
-            <span className="text-lg font-black text-emerald-500">+ Rp {rewardBonus.toLocaleString('id-ID')}</span>
-          </div>
-        </section>
+            {/* Budget Trackers Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* Wallets Grid */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h2 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${subTextClass}`}>
-              <CreditCard className="w-4 h-4 text-emerald-500" /> Active Wallets
-            </h2>
-            <button
-              onClick={() => setIsWalletModalOpen(true)}
-              className="text-xs text-emerald-500 hover:underline flex items-center gap-1 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 active:scale-95 transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" /> Tambah Dompet
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {loading ? (
-              <p className={`text-xs col-span-3 ${subTextClass}`}>Memuat dompet...</p>
-            ) : (
-              wallets.map((w) => (
-                <div
-                  key={w.id}
-                  className={`p-5 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
-                      }`}>
-                      {w.name}
-                    </span>
-                    <Wallet className={`w-4 h-4 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
+              {/* Monthly Budget Tracker */}
+              <section className={`p-6 rounded-3xl border space-y-3 ${cardClass}`}>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-sm font-bold">
+                    <Target className="w-4 h-4 text-emerald-500" /> Monthly Budget Limit
                   </div>
-                  <div className="text-xl font-bold">
-                    Rp {(Number(w.balance) || 0).toLocaleString('id-ID')}
+                  <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                    {budgetUsagePercentage}% Terpakai
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
+                    <span>Pengeluaran: Rp {totalExpenseThisMonth.toLocaleString('id-ID')}</span>
+                    <span>Limit: Rp {monthlyLimit.toLocaleString('id-ID')}</span>
+                  </div>
+                  <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${budgetUsagePercentage > 85 ? 'bg-rose-500' : budgetUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-500'
+                        }`}
+                      style={{ width: `${budgetUsagePercentage}%` }}
+                    ></div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </section>
+              </section>
 
-        {/* Form Transaction & Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              {/* Special Recovery Limit */}
+              <section className={`p-6 rounded-3xl border space-y-3 ${isDark ? 'bg-zinc-900/60 border-rose-500/40' : 'bg-white border-rose-300 shadow-sm'}`}>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-sm font-bold text-rose-400">
+                    <AlertTriangle className="w-4 h-4 text-rose-500" /> Recovery Budget (Max 300k)
+                    <button onClick={() => setActiveTooltip('recoveryBudget')} className="p-0.5">
+                      <HelpCircle className="w-3.5 h-3.5 text-rose-400/70" />
+                    </button>
+                  </div>
+                  <span className="text-xs font-bold text-rose-400 bg-rose-500/15 px-3 py-1 rounded-full border border-rose-500/30">
+                    {judolUsagePercentage}% Terpakai
+                  </span>
+                </div>
 
-          {/* Form Quick Add (Desktop View) */}
-          <section className={`hidden lg:block lg:col-span-2 p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
-            <h2 className="text-base font-bold flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-500" /> Catat Transaksi
-            </h2>
+                <div className="space-y-1.5">
+                  <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
+                    <span>Terpakai: Rp {totalJudolExpense.toLocaleString('id-ID')}</span>
+                    <span>Max: Rp {judolLimit.toLocaleString('id-ID')}</span>
+                  </div>
+                  <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${judolUsagePercentage > 80 ? 'bg-rose-500' : judolUsagePercentage > 40 ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
+                      style={{ width: `${judolUsagePercentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </section>
 
-            <form className="space-y-3" onSubmit={handleAddTransaction}>
-              <div>
-                <label className={`text-xs mb-1 block ${subTextClass}`}>Keterangan</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="misal: Kopi / Depo (Auto Detect)"
-                    value={description}
-                    onChange={(e) => handleDescriptionChange(e.target.value)}
-                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-all ${inputBgClass} ${isJudolDetected ? 'border-rose-500 ring-1 ring-rose-500' : 'focus:border-emerald-500'
+            </div>
+
+            {/* Form Input Desktop Only */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              <section className={`hidden lg:block lg:col-span-2 p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
+                <h2 className="text-base font-bold flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-500" /> Catat Transaksi
+                </h2>
+
+                <form className="space-y-3" onSubmit={handleAddTransaction}>
+                  <div>
+                    <label className={`text-xs mb-1 block ${subTextClass}`}>Keterangan</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="misal: Kopi / Depo (Auto Detect)"
+                        value={description}
+                        onChange={(e) => handleDescriptionChange(e.target.value)}
+                        className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-all ${inputBgClass} ${isJudolDetected ? 'border-rose-500 ring-1 ring-rose-500' : 'focus:border-emerald-500'
+                          }`}
+                        required
+                      />
+                      {isJudolDetected && (
+                        <span className="absolute right-3 top-2.5 text-xs text-rose-400 font-semibold flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20">
+                          <AlertTriangle className="w-3 h-3 text-rose-500" /> Auto-Detected
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={`text-xs mb-1 block ${subTextClass}`}>Nominal (Rp)</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 transition-all ${inputBgClass}`}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={`text-xs mb-1 block ${subTextClass}`}>Tipe</label>
+                      <select
+                        value={type}
+                        onChange={(e) => {
+                          setType(e.target.value);
+                          if (!isJudolDetected) {
+                            setCategory(e.target.value === 'EXPENSE' ? 'Survival Mode' : 'Main Cashflow');
+                          }
+                        }}
+                        disabled={isJudolDetected}
+                        className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-60 ${inputBgClass}`}
+                      >
+                        <option value="EXPENSE">Keluar</option>
+                        <option value="INCOME">Masuk</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={`text-xs mb-1 block ${subTextClass}`}>Dompet</label>
+                      <select
+                        value={selectedWallet}
+                        onChange={(e) => setSelectedWallet(e.target.value)}
+                        className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                      >
+                        {wallets.map(w => (
+                          <option key={w.id} value={w.name}>{w.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className={`w-full mt-2 font-bold py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 ${isJudolDetected
+                        ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
+                        : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20'
                       }`}
-                    required
-                  />
-                  {isJudolDetected && (
-                    <span className="absolute right-3 top-2.5 text-xs text-rose-400 font-semibold flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20">
-                      <AlertTriangle className="w-3 h-3 text-rose-500" /> Auto-Detected
-                    </span>
+                  >
+                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Catat Sekarang ✨'}
+                  </button>
+                </form>
+              </section>
+
+              {/* Wallets Grid */}
+              <section className="lg:col-span-3 space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <h2 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${subTextClass}`}>
+                    <CreditCard className="w-4 h-4 text-emerald-500" /> Active Wallets
+                  </h2>
+                  <button
+                    onClick={() => setIsWalletModalOpen(true)}
+                    className="text-xs text-emerald-500 hover:underline flex items-center gap-1 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 active:scale-95 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Tambah Dompet
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {loading ? (
+                    <p className={`text-xs col-span-2 ${subTextClass}`}>Memuat dompet...</p>
+                  ) : (
+                    wallets.map((w) => (
+                      <div
+                        key={w.id}
+                        className={`p-5 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
+                            }`}>
+                            {w.name}
+                          </span>
+                          <Wallet className={`w-4 h-4 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
+                        </div>
+                        <div className="text-xl font-bold">
+                          Rp {(Number(w.balance) || 0).toLocaleString('id-ID')}
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
-              </div>
-
-              <div>
-                <label className={`text-xs mb-1 block ${subTextClass}`}>Nominal (Rp)</label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 transition-all ${inputBgClass}`}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={`text-xs mb-1 block ${subTextClass}`}>Tipe</label>
-                  <select
-                    value={type}
-                    onChange={(e) => {
-                      setType(e.target.value);
-                      if (!isJudolDetected) {
-                        setCategory(e.target.value === 'EXPENSE' ? 'Survival Mode' : 'Main Cashflow');
-                      }
-                    }}
-                    disabled={isJudolDetected}
-                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-60 ${inputBgClass}`}
-                  >
-                    <option value="EXPENSE">Keluar</option>
-                    <option value="INCOME">Masuk</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={`text-xs mb-1 block ${subTextClass}`}>Dompet</label>
-                  <select
-                    value={selectedWallet}
-                    onChange={(e) => setSelectedWallet(e.target.value)}
-                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
-                  >
-                    {wallets.map(w => (
-                      <option key={w.id} value={w.name}>{w.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className={`w-full mt-2 font-bold py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 ${isJudolDetected
-                    ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
-                    : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20'
-                  }`}
-              >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Catat Sekarang ✨'}
-              </button>
-            </form>
-          </section>
-
-          {/* Transactions List */}
-          <section className={`lg:col-span-3 p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
-            <h2 className="text-base font-bold flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-emerald-500" /> Transaksi Terakhir
-            </h2>
+              </section>
+            </div>
+          </>
+        ) : (
+          /* TAB MENU LAPORAN TRANSAKSI (HISTORY PAGE) */
+          <section className={`p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
+            <div className="flex justify-between items-center">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-emerald-500" /> Laporan Riwayat Transaksi
+              </h2>
+              <span className={`text-xs ${subTextClass}`}>Total: {transactions.length} Transaksi</span>
+            </div>
 
             <div className="space-y-3">
               {loading ? (
                 <p className={`text-xs ${subTextClass}`}>Memuat data transaksi...</p>
               ) : transactions.length === 0 ? (
-                <p className={`text-xs ${subTextClass}`}>Belum ada transaksi di Supabase.</p>
+                <p className={`text-xs ${subTextClass}`}>Belum ada riwayat transaksi di Supabase.</p>
               ) : (
                 transactions.map((t) => {
                   const isIncome = t.type?.toUpperCase() === 'INCOME';
@@ -623,12 +665,58 @@ export default function Home() {
               )}
             </div>
           </section>
-
-        </div>
+        )}
 
       </div>
 
-      {/* Floating Action Button (FAB) Mobile ✨ */}
+      {/* LEFT SIDEBAR DRAWER (BURGER MENU KIRI 🍔) */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex justify-start animate-in fade-in duration-200">
+          <div className={`w-72 h-full p-6 border-r flex flex-col justify-between animate-in slide-in-from-left duration-300 ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
+            }`}>
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                  <span className="font-extrabold text-base">Anti-Judol Hub</span>
+                </div>
+                <button onClick={() => setIsSidebarOpen(false)} className={`p-1 ${subTextClass}`}>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Menu Navigation Items */}
+              <nav className="space-y-2">
+                <button
+                  onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
+                  className={`w-full p-3 rounded-2xl flex items-center gap-3 font-semibold text-sm transition-all ${activeTab === 'dashboard'
+                      ? 'bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/20'
+                      : isDark ? 'hover:bg-zinc-800 text-zinc-300' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                >
+                  <HomeIcon className="w-4 h-4" /> Dashboard & Chart
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('history'); setIsSidebarOpen(false); }}
+                  className={`w-full p-3 rounded-2xl flex items-center gap-3 font-semibold text-sm transition-all ${activeTab === 'history'
+                      ? 'bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/20'
+                      : isDark ? 'hover:bg-zinc-800 text-zinc-300' : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                >
+                  <History className="w-4 h-4" /> Laporan Transaksi
+                </button>
+              </nav>
+            </div>
+
+            <div className={`text-xs text-center py-3 border-t ${isDark ? 'border-zinc-800 text-zinc-500' : 'border-slate-200 text-slate-400'}`}>
+              Version 2.0 • Financial Health Zone
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Button (FAB) Mobile */}
       <button
         onClick={() => setIsMobileFormOpen(true)}
         className="lg:hidden fixed bottom-6 right-6 p-4 bg-emerald-500 text-zinc-950 rounded-full shadow-2xl shadow-emerald-500/50 border border-emerald-400 active:scale-90 transition-all z-40 flex items-center gap-2 font-bold"
@@ -637,7 +725,7 @@ export default function Home() {
         <span className="text-xs pr-1">Catat</span>
       </button>
 
-      {/* Bottom Sheet Form Mobile ✨ */}
+      {/* Bottom Sheet Form Mobile */}
       {isMobileFormOpen && (
         <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end animate-in fade-in duration-200">
           <div className={`w-full p-6 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
@@ -727,6 +815,27 @@ export default function Home() {
                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Catat Sekarang ✨'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Popup Interactive Tooltip Mobile (Fix Poin 1 ✨) */}
+      {activeTooltip && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className={`p-6 rounded-3xl w-full max-w-sm space-y-3 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900 shadow-xl'
+            }`}>
+            <button onClick={() => setActiveTooltip(null)} className={`absolute top-4 right-4 p-1 ${subTextClass}`}>
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-base font-bold flex items-center gap-2 text-emerald-500">
+              <HelpCircle className="w-5 h-5" /> Info Istilah
+            </h3>
+
+            <p className="text-xs leading-relaxed">
+              {activeTooltip === 'totalAmmo' && 'Total Ammo adalah akumulasi total saldo kekayaan kamu dari seluruh dompet aktif yang terdaftar di Supabase.'}
+              {activeTooltip === 'recoveryBudget' && 'Recovery Budget adalah alokasi batas maksimal pengeluaran sensitif/darurat bulanan (Max 300rb) untuk membantu proses pemulihan secara bertahap.'}
+            </p>
           </div>
         </div>
       )}
