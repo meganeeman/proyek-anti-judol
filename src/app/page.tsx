@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import confetti from 'canvas-confetti';
 import {
   Wallet,
   ArrowUpRight,
@@ -20,7 +21,8 @@ import {
   CalendarCheck,
   Sun,
   Moon,
-  Smartphone
+  Flame,
+  HelpCircle
 } from 'lucide-react';
 
 interface WalletItem {
@@ -53,8 +55,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
 
-  // Theme State: 'dark' atau 'light'
+  // Theme State
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   // Form Transaction State
@@ -122,6 +125,15 @@ export default function Home() {
     }
   };
 
+  // Trigger Efek Confetti Selebrasi 🎉
+  const triggerConfetti = () => {
+    confetti({
+      particleCount: 80,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+  };
+
   // Handle Tambah Transaksi
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,10 +175,16 @@ export default function Home() {
         .eq('id', targetWallet.id);
     }
 
+    // Selebrasi kalau hemat (bukan transaksi judol)
+    if (!isJudolDetected) {
+      triggerConfetti();
+    }
+
     setDescription('');
     setAmount('');
     setIsJudolDetected(false);
     setSubmitting(false);
+    setIsMobileFormOpen(false);
     fetchData();
   };
 
@@ -189,10 +207,29 @@ export default function Home() {
       setNewWalletName('');
       setNewWalletBalance('');
       setIsWalletModalOpen(false);
+      triggerConfetti();
       fetchData();
     }
     setSubmitting(false);
   };
+
+  // KALKULASI STREAK HARI BEBAS SLOT 🔥
+  const calculateStreakDays = () => {
+    const judolTransactions = transactions.filter(t =>
+      t.type?.toUpperCase() === 'EXPENSE' &&
+      (t.category === 'Special Recovery Tracker' || SENSITIVE_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw)))
+    );
+
+    if (judolTransactions.length === 0) return 30; // Jika tidak ada, anggap 30 hari bersih!
+
+    const lastJudolDate = new Date(judolTransactions[0].created_at);
+    const today = new Date();
+    const diffTime = Math.abs(today.getTime() - lastJudolDate.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const streakDays = calculateStreakDays();
 
   // Kalkulasi Keuangan
   const totalBalance = wallets.reduce((acc, curr) => acc + (Number(curr.balance) || 0), 0);
@@ -237,7 +274,7 @@ export default function Home() {
   const subTextClass = isDark ? 'text-zinc-400' : 'text-slate-500';
 
   return (
-    <div className={`min-h-screen font-sans p-4 md:p-8 transition-colors duration-300 ${bgClass}`}>
+    <div className={`min-h-screen font-sans p-4 md:p-8 pb-24 md:pb-8 transition-colors duration-300 ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-6">
 
         {/* Header Section */}
@@ -256,6 +293,12 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Streak Counter Counter Badge 🔥 */}
+            <div className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-orange-500/30 text-orange-400 font-bold text-xs" title="Hari beruntun bersih dari judi online!">
+              <Flame className="w-4 h-4 fill-orange-500 animate-pulse" />
+              <span>{streakDays} Hari Clean!</span>
+            </div>
+
             {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
@@ -268,7 +311,12 @@ export default function Home() {
 
             {/* Total Balance Card */}
             <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
-              <span className={`text-xs font-medium block ${subTextClass}`}>Total Ammo (Net Worth)</span>
+              <div className="flex items-center gap-1">
+                <span className={`text-xs font-medium block ${subTextClass}`}>Total Ammo</span>
+                <span className="cursor-pointer" title="Total akumulasi nilai bersih kekayaan dari seluruh dompet aktif kamu.">
+                  <HelpCircle className="w-3 h-3 text-zinc-500" />
+                </span>
+              </div>
               <span className="text-2xl md:text-3xl font-black text-emerald-500 tracking-tight">
                 {loading ? 'Loading...' : `Rp ${totalBalance.toLocaleString('id-ID')}`}
               </span>
@@ -334,13 +382,16 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Special Recovery Limit (Harm Reduction) */}
-          <section className={`p-6 rounded-3xl border space-y-3 ${isDark ? 'bg-zinc-900/60 border-rose-900/30' : 'bg-white border-rose-200 shadow-sm'}`}>
+          {/* Special Recovery Limit (High-Contrast Red Coral) */}
+          <section className={`p-6 rounded-3xl border space-y-3 ${isDark ? 'bg-zinc-900/60 border-rose-500/40' : 'bg-white border-rose-300 shadow-sm'}`}>
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-sm font-bold text-rose-500">
+              <div className="flex items-center gap-2 text-sm font-bold text-rose-400">
                 <AlertTriangle className="w-4 h-4 text-rose-500" /> Recovery Budget (Max 300k)
+                <span className="cursor-pointer" title="Alokasi batas darurat pemulihan secara bertahap.">
+                  <HelpCircle className="w-3.5 h-3.5 text-rose-400/70" />
+                </span>
               </div>
-              <span className="text-xs font-semibold text-rose-500 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">
+              <span className="text-xs font-bold text-rose-400 bg-rose-500/15 px-3 py-1 rounded-full border border-rose-500/30">
                 {judolUsagePercentage}% Terpakai
               </span>
             </div>
@@ -352,7 +403,7 @@ export default function Home() {
               </div>
               <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${judolUsagePercentage > 80 ? 'bg-rose-600' : judolUsagePercentage > 40 ? 'bg-amber-500' : 'bg-emerald-500'
+                  className={`h-full rounded-full transition-all duration-500 ${judolUsagePercentage > 80 ? 'bg-rose-500' : judolUsagePercentage > 40 ? 'bg-amber-500' : 'bg-emerald-500'
                     }`}
                   style={{ width: `${judolUsagePercentage}%` }}
                 ></div>
@@ -429,8 +480,8 @@ export default function Home() {
         {/* Form Transaction & Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-          {/* Form Quick Add */}
-          <section className={`lg:col-span-2 p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
+          {/* Form Quick Add (Desktop View) */}
+          <section className={`hidden lg:block lg:col-span-2 p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
             <h2 className="text-base font-bold flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-emerald-500" /> Catat Transaksi
             </h2>
@@ -444,13 +495,13 @@ export default function Home() {
                     placeholder="misal: Kopi / Depo (Auto Detect)"
                     value={description}
                     onChange={(e) => handleDescriptionChange(e.target.value)}
-                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-all ${inputBgClass} ${isJudolDetected ? 'border-rose-500/80 ring-1 ring-rose-500' : 'focus:border-emerald-500'
+                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-all ${inputBgClass} ${isJudolDetected ? 'border-rose-500 ring-1 ring-rose-500' : 'focus:border-emerald-500'
                       }`}
                     required
                   />
                   {isJudolDetected && (
-                    <span className="absolute right-3 top-2.5 text-xs text-rose-500 font-semibold flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20">
-                      <AlertTriangle className="w-3 h-3" /> Auto-Detected
+                    <span className="absolute right-3 top-2.5 text-xs text-rose-400 font-semibold flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20">
+                      <AlertTriangle className="w-3 h-3 text-rose-500" /> Auto-Detected
                     </span>
                   )}
                 </div>
@@ -503,12 +554,12 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={submitting}
-                className={`w-full mt-2 font-bold py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 ${isJudolDetected
+                className={`w-full mt-2 font-bold py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 ${isJudolDetected
                     ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
                     : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20'
                   }`}
               >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Lock It In ✨'}
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Catat Sekarang ✨'}
               </button>
             </form>
           </section>
@@ -533,7 +584,7 @@ export default function Home() {
                     <div
                       key={t.id}
                       className={`p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all ${isJudol
-                          ? isDark ? 'bg-rose-950/20 border-rose-900/40' : 'bg-rose-50 border-rose-200'
+                          ? isDark ? 'bg-rose-950/20 border-rose-500/40' : 'bg-rose-50 border-rose-300'
                           : isDark ? 'bg-zinc-950/60 border-zinc-800/60' : 'bg-slate-50 border-slate-200'
                         }`}
                     >
@@ -550,7 +601,7 @@ export default function Home() {
                           <h3 className="text-sm font-semibold">{t.description}</h3>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${isJudol
-                                ? 'bg-rose-500/20 text-rose-500 border border-rose-500/30'
+                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold'
                                 : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-200 text-slate-600'
                               }`}>
                               {t.category || 'General'}
@@ -561,7 +612,7 @@ export default function Home() {
                       </div>
 
                       <div className="text-right">
-                        <span className={`text-sm font-bold ${isIncome ? 'text-emerald-500' : isJudol ? 'text-rose-500' : isDark ? 'text-zinc-200' : 'text-slate-800'
+                        <span className={`text-sm font-bold ${isIncome ? 'text-emerald-500' : isJudol ? 'text-rose-400' : isDark ? 'text-zinc-200' : 'text-slate-800'
                           }`}>
                           {isIncome ? '+' : '-'} Rp {(Number(t.amount) || 0).toLocaleString('id-ID')}
                         </span>
@@ -576,6 +627,109 @@ export default function Home() {
         </div>
 
       </div>
+
+      {/* Floating Action Button (FAB) Mobile ✨ */}
+      <button
+        onClick={() => setIsMobileFormOpen(true)}
+        className="lg:hidden fixed bottom-6 right-6 p-4 bg-emerald-500 text-zinc-950 rounded-full shadow-2xl shadow-emerald-500/50 border border-emerald-400 active:scale-90 transition-all z-40 flex items-center gap-2 font-bold"
+      >
+        <Plus className="w-6 h-6 stroke-[3]" />
+        <span className="text-xs pr-1">Catat</span>
+      </button>
+
+      {/* Bottom Sheet Form Mobile ✨ */}
+      {isMobileFormOpen && (
+        <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end animate-in fade-in duration-200">
+          <div className={`w-full p-6 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
+            }`}>
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-emerald-500" /> Catat Transaksi Instan
+              </h2>
+              <button onClick={() => setIsMobileFormOpen(false)} className={`p-1 ${subTextClass}`}>
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form className="space-y-3" onSubmit={handleAddTransaction}>
+              <div>
+                <label className={`text-xs mb-1 block ${subTextClass}`}>Keterangan</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="misal: Kopi / Depo (Auto Detect)"
+                    value={description}
+                    onChange={(e) => handleDescriptionChange(e.target.value)}
+                    className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none transition-all ${inputBgClass} ${isJudolDetected ? 'border-rose-500 ring-1 ring-rose-500' : 'focus:border-emerald-500'
+                      }`}
+                    required
+                  />
+                  {isJudolDetected && (
+                    <span className="absolute right-3 top-3 text-xs text-rose-400 font-semibold flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20">
+                      <AlertTriangle className="w-3 h-3 text-rose-500" /> Auto-Detected
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className={`text-xs mb-1 block ${subTextClass}`}>Nominal (Rp)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-emerald-500 transition-all ${inputBgClass}`}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={`text-xs mb-1 block ${subTextClass}`}>Tipe</label>
+                  <select
+                    value={type}
+                    onChange={(e) => {
+                      setType(e.target.value);
+                      if (!isJudolDetected) {
+                        setCategory(e.target.value === 'EXPENSE' ? 'Survival Mode' : 'Main Cashflow');
+                      }
+                    }}
+                    disabled={isJudolDetected}
+                    className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-60 ${inputBgClass}`}
+                  >
+                    <option value="EXPENSE">Keluar</option>
+                    <option value="INCOME">Masuk</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={`text-xs mb-1 block ${subTextClass}`}>Dompet</label>
+                  <select
+                    value={selectedWallet}
+                    onChange={(e) => setSelectedWallet(e.target.value)}
+                    className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                  >
+                    {wallets.map(w => (
+                      <option key={w.id} value={w.name}>{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className={`w-full mt-3 font-bold py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 ${isJudolDetected
+                    ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
+                    : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20'
+                  }`}
+              >
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Catat Sekarang ✨'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal Popup Tambah Dompet */}
       {isWalletModalOpen && (
