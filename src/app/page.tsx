@@ -19,14 +19,12 @@ import {
   Plus,
   CreditCard,
   TrendingUp,
-  Receipt,
   Sparkles,
   ShieldCheck,
   Loader2,
   X,
   Target,
   AlertTriangle,
-  Gift,
   CalendarCheck,
   Sun,
   Moon,
@@ -37,8 +35,8 @@ import {
   History as HistoryIcon,
   Home as HomeIcon,
   Trash2,
-  Calendar,
-  Layers
+  Layers,
+  Clock
 } from 'lucide-react';
 
 interface WalletItem {
@@ -67,6 +65,13 @@ const SENSITIVE_KEYWORDS = [
   'maxwin', 'pragmatic', 'habanero', 'sbobet', 'judi', 'judionline', 'poker'
 ];
 
+// Helper Function: Ambil Waktu Lokal Sekarang Format YYYY-MM-THH:mm
+const getCurrentLocalDateTime = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+};
+
 export default function Home() {
   const [wallets, setWallets] = useState<WalletItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -85,16 +90,18 @@ export default function Home() {
   // Theme State
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
-  // Multi-Row Item State (Batch Input Nota 🧾)
+  // Multi-Row Item State
   const [items, setItems] = useState<ItemRow[]>([{ description: '', amount: '' }]);
   const [selectedWallet, setSelectedWallet] = useState('');
   const [transactionType, setTransactionType] = useState('EXPENSE');
-  const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().slice(0, 16));
 
-  // Split-Bill State 🔀
+  // State Waktu Transaksi (Otomatis Terisi Jam Sekarang ⏱️)
+  const [transactionDate, setTransactionDate] = useState(getCurrentLocalDateTime());
+
+  // Split-Bill State
   const [isSplitBill, setIsSplitBill] = useState(false);
   const [secondaryWallet, setSecondaryWallet] = useState('');
-  const [splitRatio, setSplitRatio] = useState(50); // % Porsi Dompet Utama
+  const [splitRatio, setSplitRatio] = useState(50);
 
   // Form Wallet State
   const [newWalletName, setNewWalletName] = useState('');
@@ -156,7 +163,7 @@ export default function Home() {
     confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
   };
 
-  // Handle Multi-Item & Split Bill Transaction Input 🚀
+  // Handle Submit Transaksi
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedWallet) return alert('Pilih dompet dulu ya, sayang!');
@@ -166,6 +173,9 @@ export default function Home() {
 
     setSubmitting(true);
     let hasJudol = false;
+
+    // Pastikan ISO Waktu memakai inputan atau default jam detik persis saat submit
+    const finalIsoDate = new Date(transactionDate).toISOString();
 
     for (const item of validItems) {
       const numericAmount = Number(item.amount);
@@ -178,27 +188,24 @@ export default function Home() {
         const primaryAmount = Math.round((numericAmount * splitRatio) / 100);
         const secondaryAmount = numericAmount - primaryAmount;
 
-        // Insert Transaction 1 (Dompet Utama)
         await supabase.from('transactions').insert([{
           description: `${item.description} (Split ${splitRatio}%)`,
           amount: primaryAmount,
           type: transactionType,
           category: finalCategory,
           wallet_name: selectedWallet,
-          created_at: new Date(transactionDate).toISOString()
+          created_at: finalIsoDate
         }]);
 
-        // Insert Transaction 2 (Dompet Sekunder)
         await supabase.from('transactions').insert([{
           description: `${item.description} (Split ${100 - splitRatio}%)`,
           amount: secondaryAmount,
           type: transactionType,
           category: finalCategory,
           wallet_name: secondaryWallet,
-          created_at: new Date(transactionDate).toISOString()
+          created_at: finalIsoDate
         }]);
 
-        // Update Saldo Keduanya
         const w1 = wallets.find(w => w.name === selectedWallet);
         const w2 = wallets.find(w => w.name === secondaryWallet);
         if (w1) {
@@ -211,14 +218,13 @@ export default function Home() {
         }
 
       } else {
-        // Single Wallet Transaction
         await supabase.from('transactions').insert([{
           description: item.description,
           amount: numericAmount,
           type: transactionType,
           category: finalCategory,
           wallet_name: selectedWallet,
-          created_at: new Date(transactionDate).toISOString()
+          created_at: finalIsoDate
         }]);
 
         const targetWallet = wallets.find(w => w.name === selectedWallet);
@@ -234,7 +240,9 @@ export default function Home() {
 
     if (!hasJudol) triggerConfetti();
 
+    // Reset Form & Update Waktu Real-Time Terbaru untuk Transaksi Berikutnya ✨
     setItems([{ description: '', amount: '' }]);
+    setTransactionDate(getCurrentLocalDateTime());
     setSubmitting(false);
     setIsMobileFormOpen(false);
     fetchData();
@@ -539,10 +547,20 @@ export default function Home() {
             </div>
 
             <form className="space-y-4" onSubmit={handleAddTransaction}>
-              {/* Controls: Date, Type, Wallet */}
+              {/* Controls: Date (Auto-Fill Current Time ⏱️), Type, Wallet */}
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className={`text-xs mb-1 block ${subTextClass}`}>Waktu</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={`text-xs block ${subTextClass}`}>Waktu</label>
+                    <button
+                      type="button"
+                      onClick={() => setTransactionDate(getCurrentLocalDateTime())}
+                      className="text-[10px] text-emerald-500 hover:underline flex items-center gap-0.5"
+                      title="Setel ke jam sekarang"
+                    >
+                      <Clock className="w-2.5 h-2.5" /> Now
+                    </button>
+                  </div>
                   <input
                     type="datetime-local"
                     value={transactionDate}
@@ -612,7 +630,7 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Multi Item Rows (Batch Input Nota 🧾) */}
+              {/* Multi Item Rows */}
               <div className="space-y-2">
                 <label className={`text-xs block font-bold ${subTextClass}`}>Baris Barang Belanjaan</label>
                 {items.map((item, index) => (
@@ -779,6 +797,25 @@ export default function Home() {
             </div>
 
             <form className="space-y-3" onSubmit={handleAddTransaction}>
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className={`text-xs block ${subTextClass}`}>Waktu</label>
+                  <button
+                    type="button"
+                    onClick={() => setTransactionDate(getCurrentLocalDateTime())}
+                    className="text-[10px] text-emerald-500 hover:underline flex items-center gap-0.5"
+                  >
+                    <Clock className="w-2.5 h-2.5" /> Set Jam Sekarang
+                  </button>
+                </div>
+                <input
+                  type="datetime-local"
+                  value={transactionDate}
+                  onChange={(e) => setTransactionDate(e.target.value)}
+                  className={`w-full border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                />
+              </div>
+
               <div>
                 <label className={`text-xs mb-1 block ${subTextClass}`}>Keterangan</label>
                 <input
