@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import {
   Wallet,
   ArrowUpRight,
@@ -24,40 +25,39 @@ interface Transaction {
   date: string;
   description: string;
   amount: number;
-  type: 'INCOME' | 'EXPENSE';
+  type: string;
   category: string;
-  wallet: string;
+  wallet?: string;
 }
 
 export default function Home() {
-  const [wallets] = useState<WalletItem[]>([
-    { id: '1', name: 'BCA', balance: 350000 },
-    { id: '2', name: 'DANA', balance: 150000 },
-    { id: '3', name: 'Cash', balance: 80000 },
-  ]);
+  const [wallets, setWallets] = useState<WalletItem[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [transactions] = useState<Transaction[]>([
-    {
-      id: '1',
-      date: '2026-07-23',
-      description: 'Gajian Side Job',
-      amount: 500000,
-      type: 'INCOME',
-      category: 'Main Cashflow',
-      wallet: 'BCA',
-    },
-    {
-      id: '2',
-      date: '2026-07-23',
-      description: 'Kopi & Nasi Padang',
-      amount: 45000,
-      type: 'EXPENSE',
-      category: 'Survival Mode',
-      wallet: 'DANA',
-    },
-  ]);
+  const fetchData = async () => {
+    setLoading(true);
 
-  const totalBalance = wallets.reduce((acc, curr) => acc + curr.balance, 0);
+    // Fetch Wallets
+    const { data: walletData } = await supabase.from('wallets').select('*');
+    if (walletData) setWallets(walletData);
+
+    // Fetch Transactions
+    const { data: transData } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('id', { ascending: false });
+
+    if (transData) setTransactions(transData);
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const totalBalance = wallets.reduce((acc, curr) => acc + (Number(curr.balance) || 0), 0);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans p-4 md:p-8">
@@ -80,7 +80,7 @@ export default function Home() {
           <div className="bg-zinc-800/50 p-4 rounded-2xl border border-zinc-700/50">
             <span className="text-xs text-zinc-400 font-medium block">Total Ammo (Net Worth)</span>
             <span className="text-2xl md:text-3xl font-black text-emerald-400 tracking-tight">
-              Rp {totalBalance.toLocaleString('id-ID')}
+              {loading ? 'Loading...' : `Rp ${totalBalance.toLocaleString('id-ID')}`}
             </span>
           </div>
         </header>
@@ -97,22 +97,26 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {wallets.map((w) => (
-              <div
-                key={w.id}
-                className="p-5 rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-900/40 border border-zinc-800/80 hover:border-emerald-500/40 transition-all duration-300 group"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/50 group-hover:border-emerald-500/50">
-                    {w.name}
-                  </span>
-                  <Wallet className="w-4 h-4 text-zinc-500 group-hover:text-emerald-400 transition-colors" />
+            {wallets.length === 0 && !loading ? (
+              <p className="text-xs text-zinc-500 col-span-3">Belum ada data dompet di Supabase.</p>
+            ) : (
+              wallets.map((w) => (
+                <div
+                  key={w.id}
+                  className="p-5 rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-900/40 border border-zinc-800/80 hover:border-emerald-500/40 transition-all duration-300 group"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/50 group-hover:border-emerald-500/50">
+                      {w.name}
+                    </span>
+                    <Wallet className="w-4 h-4 text-zinc-500 group-hover:text-emerald-400 transition-colors" />
+                  </div>
+                  <div className="text-lg font-bold text-zinc-100">
+                    Rp {(Number(w.balance) || 0).toLocaleString('id-ID')}
+                  </div>
                 </div>
-                <div className="text-lg font-bold text-zinc-100">
-                  Rp {w.balance.toLocaleString('id-ID')}
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </section>
 
@@ -178,38 +182,46 @@ export default function Home() {
             </h2>
 
             <div className="space-y-3">
-              {transactions.map((t) => (
-                <div
-                  key={t.id}
-                  className="p-4 rounded-2xl bg-zinc-950/60 border border-zinc-800/60 flex items-center justify-between gap-3 hover:border-zinc-700 transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl ${t.type === 'INCOME'
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                      }`}>
-                      {t.type === 'INCOME' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-zinc-100">{t.description}</h3>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
-                          {t.category}
+              {loading ? (
+                <p className="text-xs text-zinc-500">Memuat data transaksi...</p>
+              ) : transactions.length === 0 ? (
+                <p className="text-xs text-zinc-500">Belum ada transaksi di Supabase.</p>
+              ) : (
+                transactions.map((t) => {
+                  const isIncome = t.type?.toLowerCase() === 'income';
+                  return (
+                    <div
+                      key={t.id}
+                      className="p-4 rounded-2xl bg-zinc-950/60 border border-zinc-800/60 flex items-center justify-between gap-3 hover:border-zinc-700 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-xl ${isIncome
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          }`}>
+                          {isIncome ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-semibold text-zinc-100">{t.description}</h3>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
+                              {t.category || 'General'}
+                            </span>
+                            {t.wallet && <span className="text-[10px] text-zinc-500">• {t.wallet}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className={`text-sm font-bold ${isIncome ? 'text-emerald-400' : 'text-zinc-200'
+                          }`}>
+                          {isIncome ? '+' : '-'} Rp {(Number(t.amount) || 0).toLocaleString('id-ID')}
                         </span>
-                        <span className="text-[10px] text-zinc-500">• {t.wallet}</span>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="text-right">
-                    <span className={`text-sm font-bold ${t.type === 'INCOME' ? 'text-emerald-400' : 'text-zinc-200'
-                      }`}>
-                      {t.type === 'INCOME' ? '+' : '-'} Rp {t.amount.toLocaleString('id-ID')}
-                    </span>
-                    <span className="block text-[10px] text-zinc-500 mt-0.5">{t.date}</span>
-                  </div>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </section>
 
