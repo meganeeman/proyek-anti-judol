@@ -17,7 +17,10 @@ import {
   Target,
   AlertTriangle,
   Gift,
-  CalendarCheck
+  CalendarCheck,
+  Sun,
+  Moon,
+  Smartphone
 } from 'lucide-react';
 
 interface WalletItem {
@@ -50,6 +53,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+
+  // Theme State: 'dark' atau 'light'
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   // Form Transaction State
   const [description, setDescription] = useState('');
@@ -97,6 +103,10 @@ export default function Home() {
     fetchData();
   }, []);
 
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
   // Cek kata kunci secara otomatis pas ngetik keterangan
   const handleDescriptionChange = (text: string) => {
     setDescription(text);
@@ -122,7 +132,6 @@ export default function Home() {
 
     setSubmitting(true);
     const numericAmount = Number(amount);
-
     const finalCategory = isJudolDetected ? 'Special Recovery Tracker' : category;
 
     const { error: transError } = await supabase.from('transactions').insert([
@@ -192,7 +201,6 @@ export default function Home() {
     .filter(t => t.type?.toUpperCase() === 'EXPENSE')
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-  // Kalkulasi khusus pengeluaran terdeteksi recovery
   const totalJudolExpense = transactions
     .filter(t => {
       const isExpense = t.type?.toUpperCase() === 'EXPENSE';
@@ -202,7 +210,7 @@ export default function Home() {
     })
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-  // KALKULASI LIMIT HARIAN (DAILY LIMIT)
+  // Kalkulasi Limit Harian
   const todayStr = new Date().toISOString().split('T')[0];
   const todayExpense = transactions
     .filter(t => {
@@ -212,7 +220,6 @@ export default function Home() {
     })
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-  // Basic daily limit (Limit Bulanan / 30 hari)
   const baseDailyLimit = Math.round(monthlyLimit / 30);
   const rewardBonus = Math.max(judolLimit - totalJudolExpense, 0);
   const totalDailyLimit = baseDailyLimit + Math.round(rewardBonus / 30);
@@ -222,51 +229,75 @@ export default function Home() {
   const budgetUsagePercentage = Math.min(Math.round((totalExpenseThisMonth / monthlyLimit) * 100), 100);
   const judolUsagePercentage = Math.min(Math.round((totalJudolExpense / judolLimit) * 100), 100);
 
+  // Dynamic Theme Styling Classes
+  const isDark = theme === 'dark';
+  const bgClass = isDark ? 'bg-zinc-950 text-zinc-100' : 'bg-slate-100 text-slate-900';
+  const cardClass = isDark ? 'bg-zinc-900/60 border-zinc-800/80' : 'bg-white/80 border-slate-200/80 shadow-sm';
+  const inputBgClass = isDark ? 'bg-zinc-950 border-zinc-800 text-zinc-200' : 'bg-slate-50 border-slate-300 text-slate-800';
+  const subTextClass = isDark ? 'text-zinc-400' : 'text-slate-500';
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans p-4 md:p-8">
+    <div className={`min-h-screen font-sans p-4 md:p-8 transition-colors duration-300 ${bgClass}`}>
       <div className="max-w-4xl mx-auto space-y-6">
 
         {/* Header Section */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl">
+        <header className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl border backdrop-blur-xl transition-all ${cardClass}`}>
           <div>
-            <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold tracking-wider uppercase mb-1">
+            <div className="flex items-center gap-2 text-emerald-500 text-xs font-semibold tracking-wider uppercase mb-1">
               <ShieldCheck className="w-4 h-4" />
               <span>Financial Health Zone</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
               Anti-Judol Hub <Sparkles className="inline-block w-5 h-5 text-yellow-400" />
             </h1>
-            <p className="text-zinc-400 text-sm mt-1">
+            <p className={`text-sm mt-1 ${subTextClass}`}>
               Smart Financial Tracker • Bebas Slot, Dompet Sehat!
             </p>
           </div>
-          <div className="bg-zinc-800/50 p-4 rounded-2xl border border-zinc-700/50">
-            <span className="text-xs text-zinc-400 font-medium block">Total Ammo (Net Worth)</span>
-            <span className="text-2xl md:text-3xl font-black text-emerald-400 tracking-tight">
-              {loading ? 'Loading...' : `Rp ${totalBalance.toLocaleString('id-ID')}`}
-            </span>
+
+          <div className="flex items-center gap-3">
+            {/* Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className={`p-3 rounded-2xl border transition-all active:scale-95 flex items-center justify-center ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-yellow-400 hover:bg-zinc-700' : 'bg-slate-200 border-slate-300 text-indigo-600 hover:bg-slate-300'
+                }`}
+              title="Ganti Tema Dark/Light"
+            >
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+
+            {/* Total Balance Card */}
+            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
+              <span className={`text-xs font-medium block ${subTextClass}`}>Total Ammo (Net Worth)</span>
+              <span className="text-2xl md:text-3xl font-black text-emerald-500 tracking-tight">
+                {loading ? 'Loading...' : `Rp ${totalBalance.toLocaleString('id-ID')}`}
+              </span>
+            </div>
           </div>
         </header>
 
-        {/* Daily Allowance Tracker Widget (BARU! ✨) */}
-        <section className="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border border-emerald-500/30 space-y-3">
+        {/* Daily Allowance Tracker Widget */}
+        <section className={`p-6 rounded-3xl border space-y-3 ${isDark
+            ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
+            : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
+          }`}>
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2 text-sm font-bold text-emerald-300">
-              <CalendarCheck className="w-4 h-4 text-emerald-400" /> Daily Limit Tracker (Hari Ini)
+            <div className={`flex items-center gap-2 text-sm font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
+              <CalendarCheck className="w-4 h-4 text-emerald-500" /> Daily Limit Tracker (Hari Ini)
             </div>
-            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+            <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
               Sisa Limit: Rp {remainingDailyLimit.toLocaleString('id-ID')}
             </span>
           </div>
 
           <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-zinc-400 font-medium">
+            <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
               <span>Terpakai Hari Ini: Rp {todayExpense.toLocaleString('id-ID')}</span>
               <span>Jatah Harian (+Reward): Rp {totalDailyLimit.toLocaleString('id-ID')}</span>
             </div>
-            <div className="w-full h-3 bg-zinc-950 rounded-full overflow-hidden p-0.5 border border-zinc-800">
+            <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
               <div
-                className={`h-full rounded-full transition-all duration-500 ${dailyUsagePercentage > 85 ? 'bg-rose-500' : dailyUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-400'
+                className={`h-full rounded-full transition-all duration-500 ${dailyUsagePercentage > 85 ? 'bg-rose-500' : dailyUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-500'
                   }`}
                 style={{ width: `${dailyUsagePercentage}%` }}
               ></div>
@@ -278,24 +309,24 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* Monthly Budget Tracker */}
-          <section className="p-6 rounded-3xl bg-gradient-to-r from-zinc-900 to-zinc-900/80 border border-zinc-800/80 space-y-3">
+          <section className={`p-6 rounded-3xl border space-y-3 ${cardClass}`}>
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-sm font-bold text-zinc-200">
-                <Target className="w-4 h-4 text-emerald-400" /> Monthly Budget Limit
+              <div className="flex items-center gap-2 text-sm font-bold">
+                <Target className="w-4 h-4 text-emerald-500" /> Monthly Budget Limit
               </div>
-              <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+              <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
                 {budgetUsagePercentage}% Terpakai
               </span>
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex justify-between text-xs text-zinc-400 font-medium">
+              <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
                 <span>Pengeluaran: Rp {totalExpenseThisMonth.toLocaleString('id-ID')}</span>
                 <span>Limit: Rp {monthlyLimit.toLocaleString('id-ID')}</span>
               </div>
-              <div className="w-full h-3 bg-zinc-950 rounded-full overflow-hidden p-0.5 border border-zinc-800">
+              <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${budgetUsagePercentage > 85 ? 'bg-rose-500' : budgetUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-400'
+                  className={`h-full rounded-full transition-all duration-500 ${budgetUsagePercentage > 85 ? 'bg-rose-500' : budgetUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-500'
                     }`}
                   style={{ width: `${budgetUsagePercentage}%` }}
                 ></div>
@@ -304,22 +335,22 @@ export default function Home() {
           </section>
 
           {/* Special Recovery Limit (Harm Reduction) */}
-          <section className="p-6 rounded-3xl bg-gradient-to-r from-zinc-900 to-zinc-900/80 border border-rose-900/30 space-y-3">
+          <section className={`p-6 rounded-3xl border space-y-3 ${isDark ? 'bg-zinc-900/60 border-rose-900/30' : 'bg-white border-rose-200 shadow-sm'}`}>
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-sm font-bold text-rose-300">
-                <AlertTriangle className="w-4 h-4 text-rose-400" /> Recovery Budget (Max 300k)
+              <div className="flex items-center gap-2 text-sm font-bold text-rose-500">
+                <AlertTriangle className="w-4 h-4 text-rose-500" /> Recovery Budget (Max 300k)
               </div>
-              <span className="text-xs font-semibold text-rose-400 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">
+              <span className="text-xs font-semibold text-rose-500 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">
                 {judolUsagePercentage}% Terpakai
               </span>
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex justify-between text-xs text-zinc-400 font-medium">
+              <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
                 <span>Terpakai: Rp {totalJudolExpense.toLocaleString('id-ID')}</span>
                 <span>Max: Rp {judolLimit.toLocaleString('id-ID')}</span>
               </div>
-              <div className="w-full h-3 bg-zinc-950 rounded-full overflow-hidden p-0.5 border border-zinc-800">
+              <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${judolUsagePercentage > 80 ? 'bg-rose-600' : judolUsagePercentage > 40 ? 'bg-amber-500' : 'bg-emerald-500'
                     }`}
@@ -332,35 +363,39 @@ export default function Home() {
         </div>
 
         {/* Rewarding System Banner */}
-        <section className="p-5 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-900 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <section className={`p-5 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isDark
+            ? 'bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-900 border-emerald-500/30'
+            : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
+          }`}>
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-400">
+            <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-500">
               <Gift className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+              <h3 className="text-sm font-bold flex items-center gap-2">
                 Rewarding System Active <Sparkles className="w-4 h-4 text-yellow-400" />
               </h3>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Sisa hemat recovery otomatis menambah limit harian kamu sebesar <strong className="text-emerald-400">+Rp {Math.round(rewardBonus / 30).toLocaleString('id-ID')}/hari</strong>!
+              <p className={`text-xs mt-0.5 ${subTextClass}`}>
+                Sisa hemat recovery otomatis menambah limit harian kamu sebesar <strong className="text-emerald-500">+Rp {Math.round(rewardBonus / 30).toLocaleString('id-ID')}/hari</strong>!
               </p>
             </div>
           </div>
-          <div className="bg-zinc-950/80 px-4 py-2.5 rounded-2xl border border-emerald-500/20 text-right w-full sm:w-auto">
-            <span className="text-[10px] text-zinc-400 block font-semibold uppercase tracking-wider">Potensi Bonus Reward</span>
-            <span className="text-lg font-black text-emerald-400">+ Rp {rewardBonus.toLocaleString('id-ID')}</span>
+          <div className={`px-4 py-2.5 rounded-2xl border text-right w-full sm:w-auto ${isDark ? 'bg-zinc-950/80 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'
+            }`}>
+            <span className={`text-[10px] block font-semibold uppercase tracking-wider ${subTextClass}`}>Potensi Bonus Reward</span>
+            <span className="text-lg font-black text-emerald-500">+ Rp {rewardBonus.toLocaleString('id-ID')}</span>
           </div>
         </section>
 
         {/* Wallets Grid */}
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-emerald-400" /> Active Wallets
+            <h2 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${subTextClass}`}>
+              <CreditCard className="w-4 h-4 text-emerald-500" /> Active Wallets
             </h2>
             <button
               onClick={() => setIsWalletModalOpen(true)}
-              className="text-xs text-emerald-400 hover:underline flex items-center gap-1 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 active:scale-95 transition-all"
+              className="text-xs text-emerald-500 hover:underline flex items-center gap-1 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 active:scale-95 transition-all"
             >
               <Plus className="w-3.5 h-3.5" /> Tambah Dompet
             </button>
@@ -368,20 +403,21 @@ export default function Home() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {loading ? (
-              <p className="text-xs text-zinc-500 col-span-3">Memuat dompet...</p>
+              <p className={`text-xs col-span-3 ${subTextClass}`}>Memuat dompet...</p>
             ) : (
               wallets.map((w) => (
                 <div
                   key={w.id}
-                  className="p-5 rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-900/40 border border-zinc-800/80 hover:border-emerald-500/40 transition-all duration-300 group"
+                  className={`p-5 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/50 group-hover:border-emerald-500/50">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
+                      }`}>
                       {w.name}
                     </span>
-                    <Wallet className="w-4 h-4 text-zinc-500 group-hover:text-emerald-400 transition-colors" />
+                    <Wallet className={`w-4 h-4 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
                   </div>
-                  <div className="text-xl font-bold text-zinc-100">
+                  <div className="text-xl font-bold">
                     Rp {(Number(w.balance) || 0).toLocaleString('id-ID')}
                   </div>
                 </div>
@@ -394,26 +430,26 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
           {/* Form Quick Add */}
-          <section className="lg:col-span-2 p-6 rounded-3xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl space-y-4">
-            <h2 className="text-base font-bold text-zinc-200 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-400" /> Catat Transaksi
+          <section className={`lg:col-span-2 p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
+            <h2 className="text-base font-bold flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-500" /> Catat Transaksi
             </h2>
 
             <form className="space-y-3" onSubmit={handleAddTransaction}>
               <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Keterangan</label>
+                <label className={`text-xs mb-1 block ${subTextClass}`}>Keterangan</label>
                 <div className="relative">
                   <input
                     type="text"
                     placeholder="misal: Kopi / Depo (Auto Detect)"
                     value={description}
                     onChange={(e) => handleDescriptionChange(e.target.value)}
-                    className={`w-full bg-zinc-950 border rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none transition-all ${isJudolDetected ? 'border-rose-500/80 ring-1 ring-rose-500' : 'border-zinc-800 focus:border-emerald-500'
+                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-all ${inputBgClass} ${isJudolDetected ? 'border-rose-500/80 ring-1 ring-rose-500' : 'focus:border-emerald-500'
                       }`}
                     required
                   />
                   {isJudolDetected && (
-                    <span className="absolute right-3 top-2.5 text-xs text-rose-400 font-semibold flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20">
+                    <span className="absolute right-3 top-2.5 text-xs text-rose-500 font-semibold flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20">
                       <AlertTriangle className="w-3 h-3" /> Auto-Detected
                     </span>
                   )}
@@ -421,20 +457,20 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Nominal (Rp)</label>
+                <label className={`text-xs mb-1 block ${subTextClass}`}>Nominal (Rp)</label>
                 <input
                   type="number"
                   placeholder="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500 transition-all"
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 transition-all ${inputBgClass}`}
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-zinc-400 mb-1 block">Tipe</label>
+                  <label className={`text-xs mb-1 block ${subTextClass}`}>Tipe</label>
                   <select
                     value={type}
                     onChange={(e) => {
@@ -444,18 +480,18 @@ export default function Home() {
                       }
                     }}
                     disabled={isJudolDetected}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500 disabled:opacity-60"
+                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-60 ${inputBgClass}`}
                   >
                     <option value="EXPENSE">Keluar</option>
                     <option value="INCOME">Masuk</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-400 mb-1 block">Dompet</label>
+                  <label className={`text-xs mb-1 block ${subTextClass}`}>Dompet</label>
                   <select
                     value={selectedWallet}
                     onChange={(e) => setSelectedWallet(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                    className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
                   >
                     {wallets.map(w => (
                       <option key={w.id} value={w.name}>{w.name}</option>
@@ -468,7 +504,7 @@ export default function Home() {
                 type="submit"
                 disabled={submitting}
                 className={`w-full mt-2 font-bold py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 ${isJudolDetected
-                    ? 'bg-rose-500 hover:bg-rose-400 text-zinc-950 shadow-rose-500/20'
+                    ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
                     : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20'
                   }`}
               >
@@ -478,16 +514,16 @@ export default function Home() {
           </section>
 
           {/* Transactions List */}
-          <section className="lg:col-span-3 p-6 rounded-3xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl space-y-4">
-            <h2 className="text-base font-bold text-zinc-200 flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-emerald-400" /> Transaksi Terakhir
+          <section className={`lg:col-span-3 p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
+            <h2 className="text-base font-bold flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-emerald-500" /> Transaksi Terakhir
             </h2>
 
             <div className="space-y-3">
               {loading ? (
-                <p className="text-xs text-zinc-500">Memuat data transaksi...</p>
+                <p className={`text-xs ${subTextClass}`}>Memuat data transaksi...</p>
               ) : transactions.length === 0 ? (
-                <p className="text-xs text-zinc-500">Belum ada transaksi di Supabase.</p>
+                <p className={`text-xs ${subTextClass}`}>Belum ada transaksi di Supabase.</p>
               ) : (
                 transactions.map((t) => {
                   const isIncome = t.type?.toUpperCase() === 'INCOME';
@@ -497,35 +533,35 @@ export default function Home() {
                     <div
                       key={t.id}
                       className={`p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all ${isJudol
-                          ? 'bg-rose-950/20 border-rose-900/40 hover:border-rose-700/50'
-                          : 'bg-zinc-950/60 border-zinc-800/60 hover:border-zinc-700'
+                          ? isDark ? 'bg-rose-950/20 border-rose-900/40' : 'bg-rose-50 border-rose-200'
+                          : isDark ? 'bg-zinc-950/60 border-zinc-800/60' : 'bg-slate-50 border-slate-200'
                         }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className={`p-2.5 rounded-xl ${isJudol
-                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                            ? 'bg-rose-500/20 text-rose-500 border border-rose-500/30'
                             : isIncome
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-zinc-800 text-zinc-400 border border-zinc-700/50'
+                              ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                              : isDark ? 'bg-zinc-800 text-zinc-400 border-zinc-700/50' : 'bg-slate-200 text-slate-600 border-slate-300'
                           }`}>
                           {isIncome ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                         </div>
                         <div>
-                          <h3 className="text-sm font-semibold text-zinc-100">{t.description}</h3>
+                          <h3 className="text-sm font-semibold">{t.description}</h3>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${isJudol
-                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                : 'bg-zinc-800 text-zinc-400'
+                                ? 'bg-rose-500/20 text-rose-500 border border-rose-500/30'
+                                : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-200 text-slate-600'
                               }`}>
                               {t.category || 'General'}
                             </span>
-                            {t.wallet_name && <span className="text-[10px] text-zinc-500">• {t.wallet_name}</span>}
+                            {t.wallet_name && <span className={`text-[10px] ${subTextClass}`}>• {t.wallet_name}</span>}
                           </div>
                         </div>
                       </div>
 
                       <div className="text-right">
-                        <span className={`text-sm font-bold ${isIncome ? 'text-emerald-400' : isJudol ? 'text-rose-400' : 'text-zinc-200'
+                        <span className={`text-sm font-bold ${isIncome ? 'text-emerald-500' : isJudol ? 'text-rose-500' : isDark ? 'text-zinc-200' : 'text-slate-800'
                           }`}>
                           {isIncome ? '+' : '-'} Rp {(Number(t.amount) || 0).toLocaleString('id-ID')}
                         </span>
@@ -544,39 +580,40 @@ export default function Home() {
       {/* Modal Popup Tambah Dompet */}
       {isWalletModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl w-full max-w-md space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
+          <div className={`p-6 rounded-3xl w-full max-w-md space-y-4 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200 shadow-2xl'
+            }`}>
             <button
               onClick={() => setIsWalletModalOpen(false)}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-100 p-1"
+              className={`absolute top-4 right-4 p-1 ${subTextClass}`}
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-emerald-400" /> Tambah Dompet Baru
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-emerald-500" /> Tambah Dompet Baru
             </h3>
 
             <form className="space-y-3" onSubmit={handleAddWallet}>
               <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Nama Dompet / Bank</label>
+                <label className={`text-xs mb-1 block ${subTextClass}`}>Nama Dompet / Bank</label>
                 <input
                   type="text"
                   placeholder="misal: BCA / GoPay / Seabank"
                   value={newWalletName}
                   onChange={(e) => setNewWalletName(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
                   required
                 />
               </div>
 
               <div>
-                <label className="text-xs text-zinc-400 mb-1 block">Saldo Awal (Rp)</label>
+                <label className={`text-xs mb-1 block ${subTextClass}`}>Saldo Awal (Rp)</label>
                 <input
                   type="number"
                   placeholder="0"
                   value={newWalletBalance}
                   onChange={(e) => setNewWalletBalance(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
                   required
                 />
               </div>
