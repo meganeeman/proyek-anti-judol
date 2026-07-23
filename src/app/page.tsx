@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import {
@@ -37,13 +38,16 @@ import {
   Filter,
   PieChart,
   ArrowUpCircle,
-  ArrowDownCircle
+  ArrowDownCircle,
+  LogOut,
+  User as UserIcon
 } from 'lucide-react';
 
 interface WalletItem {
   id: number;
   name: string;
   balance: number;
+  user_id: string;
 }
 
 interface Transaction {
@@ -54,6 +58,7 @@ interface Transaction {
   type: string;
   category: string;
   wallet_name: string;
+  user_id: string;
 }
 
 interface ItemRow {
@@ -83,6 +88,9 @@ const parseRupiahNumber = (val: string) => {
 };
 
 export default function Home() {
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
   const [wallets, setWallets] = useState<WalletItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [monthlyLimit, setMonthlyLimit] = useState(1500000);
@@ -116,10 +124,29 @@ export default function Home() {
 
   const amountInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchData = async () => {
+  useEffect(() => {
+    const checkUserAndFetch = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+      setCurrentUser(session.user);
+      fetchData(session.user.id);
+    };
+
+    checkUserAndFetch();
+  }, [router]);
+
+  const fetchData = async (userId: string) => {
     setLoading(true);
 
-    const { data: walletData } = await supabase.from('wallets').select('*').order('id', { ascending: true });
+    const { data: walletData } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('id', { ascending: true });
+
     if (walletData) {
       setWallets(walletData);
       if (walletData.length > 0 && !selectedWallet) {
@@ -131,11 +158,18 @@ export default function Home() {
     const { data: transData } = await supabase
       .from('transactions')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (transData) setTransactions(transData);
 
-    const { data: budgetData } = await supabase.from('budgets').select('*').limit(1).single();
+    const { data: budgetData } = await supabase
+      .from('budgets')
+      .select('*')
+      .eq('user_id', userId)
+      .limit(1)
+      .single();
+
     if (budgetData) {
       setMonthlyLimit(Number(budgetData.monthly_limit) || 1500000);
       setJudolLimit(Number(budgetData.judol_limit) || 300000);
@@ -143,10 +177,6 @@ export default function Home() {
 
     setLoading(false);
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   useEffect(() => {
     if (isMobileFormOpen) {
@@ -158,6 +188,11 @@ export default function Home() {
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
   };
 
   const handleAddItemRow = () => {
@@ -315,6 +350,7 @@ export default function Home() {
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedWallet) return alert('Pilih dompet dulu ya, sayang!');
+    if (!currentUser) return alert('Sesi login kedaluwarsa, silakan login ulang.');
 
     const validItems = items.filter(item => item.description.trim() !== '' && parseRupiahNumber(item.amount) > 0);
     if (validItems.length === 0) return alert('Isi nominal dan keterangan yang valid ya!');
@@ -340,7 +376,8 @@ export default function Home() {
           type: transactionType,
           category: finalCategory,
           wallet_name: selectedWallet,
-          created_at: finalIsoDate
+          created_at: finalIsoDate,
+          user_id: currentUser.id
         }]);
 
         await supabase.from('transactions').insert([{
@@ -349,7 +386,8 @@ export default function Home() {
           type: transactionType,
           category: finalCategory,
           wallet_name: secondaryWallet,
-          created_at: finalIsoDate
+          created_at: finalIsoDate,
+          user_id: currentUser.id
         }]);
 
       } else {
@@ -359,7 +397,8 @@ export default function Home() {
           type: transactionType,
           category: finalCategory,
           wallet_name: selectedWallet,
-          created_at: finalIsoDate
+          created_at: finalIsoDate,
+          user_id: currentUser.id
         }]);
       }
     }
@@ -370,17 +409,18 @@ export default function Home() {
     setTransactionDate(getCurrentLocalDateTime());
     setSubmitting(false);
     setIsMobileFormOpen(false);
-    fetchData();
+    fetchData(currentUser.id);
   };
 
   const handleAddWallet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWalletName || !newWalletBalance) return;
+    if (!currentUser) return;
 
     setSubmitting(true);
     const numericBalance = parseRupiahNumber(newWalletBalance);
     const { error } = await supabase.from('wallets').insert([
-      { name: newWalletName, balance: numericBalance }
+      { name: newWalletName, balance: numericBalance, user_id: currentUser.id }
     ]);
 
     if (!error) {
@@ -388,7 +428,7 @@ export default function Home() {
       setNewWalletBalance('');
       setIsWalletModalOpen(false);
       triggerConfetti();
-      fetchData();
+      fetchData(currentUser.id);
     }
     setSubmitting(false);
   };
@@ -455,6 +495,14 @@ export default function Home() {
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
+            <button
+              onClick={handleLogout}
+              title="Keluar Akun"
+              className={`p-2.5 rounded-2xl border transition-all active:scale-95 flex items-center justify-center text-rose-500 ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 hover:bg-rose-500/20' : 'bg-slate-200 border-slate-300 hover:bg-rose-100'}`}
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+
             <div className={`hidden md:block p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center gap-1">
                 <span className={`text-[10px] font-medium block uppercase tracking-wider ${subTextClass}`}>Total Ammo</span>
@@ -485,6 +533,8 @@ export default function Home() {
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory -mx-4 px-4">
             {loading ? (
               <p className={`text-xs ${subTextClass}`}>Memuat dompet...</p>
+            ) : wallets.length === 0 ? (
+              <p className={`text-xs ${subTextClass}`}>Belum ada dompet. Tambah dompet baru yuk!</p>
             ) : (
               wallets.map((w) => {
                 const calculatedBalance = getWalletCalculatedBalance(w.name);
