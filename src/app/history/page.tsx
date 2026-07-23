@@ -2,17 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import {
     ArrowUpCircle,
     ArrowDownCircle,
     Search,
-    Filter,
     Home as HomeIcon,
     History as HistoryIcon,
-    Sun,
-    Moon,
     ShieldCheck,
     Calendar,
     Tag,
@@ -22,8 +18,10 @@ import {
     Plus,
     Clock,
     X,
-    Loader2
+    Loader2,
+    User
 } from 'lucide-react';
+import Toast from '@/components/Toast';
 
 interface WalletItem {
     id: number;
@@ -71,6 +69,7 @@ export default function HistoryPage() {
     const [typeFilter, setTypeFilter] = useState<'ALL' | 'EXPENSE' | 'INCOME'>('ALL');
     const [dateFilter, setDateFilter] = useState<string>('');
     const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
     const [mobileDesc, setMobileDesc] = useState('');
@@ -80,6 +79,10 @@ export default function HistoryPage() {
     const [mobileDate, setMobileDate] = useState(getCurrentLocalDateTime());
 
     const amountInputRef = useRef<HTMLInputElement>(null);
+
+    const showToast = (message: string, type: 'success' | 'error') => {
+        setToast({ message, type });
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -104,6 +107,15 @@ export default function HistoryPage() {
     };
 
     useEffect(() => {
+        const savedTheme = localStorage.getItem('theme') as 'dark' | 'light';
+        if (savedTheme) {
+            setTheme(savedTheme);
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
         fetchData();
     }, []);
 
@@ -115,24 +127,19 @@ export default function HistoryPage() {
         }
     }, [isMobileFormOpen]);
 
-    const toggleTheme = () => {
-        setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-    };
-
-    const triggerConfetti = () => {
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-    };
-
     const handleMobileSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const numericAmount = parseRupiahNumber(mobileAmount);
-        if (!mobileDesc.trim() || numericAmount <= 0 || !mobileWallet) return;
+        if (!mobileDesc.trim() || numericAmount <= 0 || !mobileWallet) {
+            showToast('Lengkapi semua data transaksi dengan benar ya!', 'error');
+            return;
+        }
 
         setSubmitting(true);
         const isJudol = SENSITIVE_KEYWORDS.some(kw => mobileDesc.toLowerCase().includes(kw));
         const finalCategory = isJudol ? 'Special Recovery Tracker' : (mobileType === 'EXPENSE' ? 'Survival Mode' : 'Main Cashflow');
 
-        await supabase.from('transactions').insert([{
+        const { error } = await supabase.from('transactions').insert([{
             description: mobileDesc,
             amount: numericAmount,
             type: mobileType,
@@ -141,14 +148,18 @@ export default function HistoryPage() {
             created_at: new Date(mobileDate).toISOString()
         }]);
 
-        if (!isJudol) triggerConfetti();
-
-        setMobileDesc('');
-        setMobileAmount('');
-        setMobileDate(getCurrentLocalDateTime());
         setSubmitting(false);
-        setIsMobileFormOpen(false);
-        fetchData();
+
+        if (error) {
+            showToast('Gagal mencatat transaksi: ' + error.message, 'error');
+        } else {
+            showToast('Transaksi berhasil dicatat!', 'success');
+            setMobileDesc('');
+            setMobileAmount('');
+            setMobileDate(getCurrentLocalDateTime());
+            setIsMobileFormOpen(false);
+            fetchData();
+        }
     };
 
     const filteredTransactions = transactions.filter(t => {
@@ -207,8 +218,18 @@ export default function HistoryPage() {
 
     return (
         <div className={`min-h-screen font-sans p-4 md:p-8 pb-32 md:pb-8 transition-colors duration-300 ${bgClass}`}>
+
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
+
             <div className="max-w-4xl mx-auto space-y-6">
 
+                {/* HEADER */}
                 <header className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 md:p-6 rounded-3xl border backdrop-blur-xl ${cardClass}`}>
                     <div>
                         <div className="flex items-center gap-2 text-emerald-500 text-xs font-semibold tracking-wider uppercase mb-0.5">
@@ -234,18 +255,17 @@ export default function HistoryPage() {
                             >
                                 <HistoryIcon className="w-3.5 h-3.5" /> Laporan
                             </Link>
+                            <Link
+                                href="/profile"
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${subTextClass} hover:text-zinc-200`}
+                            >
+                                <User className="w-3.5 h-3.5" /> Profil
+                            </Link>
                         </nav>
-
-                        <button
-                            onClick={toggleTheme}
-                            className={`p-2.5 rounded-2xl border transition-all active:scale-95 flex items-center justify-center ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-yellow-400 hover:bg-zinc-700' : 'bg-slate-200 border-slate-300 text-indigo-600 hover:bg-slate-300'
-                                }`}
-                        >
-                            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                        </button>
                     </div>
                 </header>
 
+                {/* STATS */}
                 <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-900/60 border-zinc-800/80' : 'bg-white border-slate-200 shadow-sm'}`}>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1">
@@ -275,6 +295,7 @@ export default function HistoryPage() {
                     </div>
                 </section>
 
+                {/* FILTER & SEARCH */}
                 <section className={`p-4 rounded-3xl border space-y-3 ${cardClass}`}>
                     <div className="flex flex-col sm:flex-row gap-3">
                         <div className="relative flex-1">
@@ -334,6 +355,7 @@ export default function HistoryPage() {
                     </div>
                 </section>
 
+                {/* TRANSACTIONS LIST */}
                 <section className="space-y-6 pb-6">
                     {loading ? (
                         <p className={`text-center py-12 text-xs ${subTextClass}`}>Memuat riwayat transaksi...</p>
@@ -366,10 +388,10 @@ export default function HistoryPage() {
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <div className={`p-2.5 rounded-xl border ${isIncome
-                                                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                                                            : isJudol
-                                                                ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-                                                                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                                                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                                        : isJudol
+                                                            ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
+                                                            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
                                                         }`}>
                                                         {isIncome ? <ArrowDownCircle className="w-5 h-5" /> : <ArrowUpCircle className="w-5 h-5" />}
                                                     </div>
@@ -408,34 +430,52 @@ export default function HistoryPage() {
 
             </div>
 
-            <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-6 py-2 border-t backdrop-blur-xl flex justify-between items-center ${isDark ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400' : 'bg-white/90 border-slate-200 text-slate-600'
+            {/* BOTTOM NAVIGATION (MOBILE) - PRESISI 3 KOLOM SIMETRIS */}
+            <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-4 py-2 border-t backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-800 text-zinc-400' : 'bg-white/95 border-slate-200 text-slate-600'
                 }`}>
-                <Link
-                    href="/"
-                    className={`flex flex-col items-center gap-1 font-semibold text-[10px] ${subTextClass}`}
-                >
-                    <HomeIcon className="w-5 h-5" />
-                    <span>Dashboard</span>
-                </Link>
+                <div className="grid grid-cols-3 items-center w-full max-w-sm mx-auto">
 
-                <div className="relative -top-5">
-                    <button
-                        onClick={() => setIsMobileFormOpen(true)}
-                        className="w-12 h-12 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 border border-emerald-400"
-                    >
-                        <Plus className="w-6 h-6 stroke-[3]" />
-                    </button>
+                    <div className="flex items-center justify-around">
+                        <Link
+                            href="/"
+                            className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
+                        >
+                            <HomeIcon className="w-5 h-5" />
+                            <span>Dashboard</span>
+                        </Link>
+
+                        <Link
+                            href="/history"
+                            className="flex flex-col items-center justify-center gap-1 text-emerald-500 font-bold text-[10px]"
+                        >
+                            <HistoryIcon className="w-5 h-5" />
+                            <span>Laporan</span>
+                        </Link>
+                    </div>
+
+                    <div className="flex justify-center items-center relative -top-5">
+                        <button
+                            onClick={() => setIsMobileFormOpen(true)}
+                            className="w-12 h-12 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 border border-emerald-400"
+                        >
+                            <Plus className="w-6 h-6 stroke-[3]" />
+                        </button>
+                    </div>
+
+                    <div className="flex items-center justify-center">
+                        <Link
+                            href="/profile"
+                            className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
+                        >
+                            <User className="w-5 h-5" />
+                            <span>Profil</span>
+                        </Link>
+                    </div>
+
                 </div>
-
-                <Link
-                    href="/history"
-                    className="flex flex-col items-center gap-1 text-emerald-500 font-bold text-[10px]"
-                >
-                    <HistoryIcon className="w-5 h-5" />
-                    <span>Laporan</span>
-                </Link>
             </nav>
 
+            {/* MOBILE MODAL */}
             {isMobileFormOpen && (
                 <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end animate-in fade-in duration-200">
                     <div className={`w-full p-5 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
@@ -485,8 +525,8 @@ export default function HistoryPage() {
                                         type="button"
                                         onClick={() => setMobileType('EXPENSE')}
                                         className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${mobileType === 'EXPENSE'
-                                                ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-500/20'
-                                                : `${inputBgClass} ${subTextClass}`
+                                            ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-500/20'
+                                            : `${inputBgClass} ${subTextClass}`
                                             }`}
                                     >
                                         Pengeluaran (Keluar)
@@ -495,8 +535,8 @@ export default function HistoryPage() {
                                         type="button"
                                         onClick={() => setMobileType('INCOME')}
                                         className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${mobileType === 'INCOME'
-                                                ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md shadow-emerald-500/20'
-                                                : `${inputBgClass} ${subTextClass}`
+                                            ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md shadow-emerald-500/20'
+                                            : `${inputBgClass} ${subTextClass}`
                                             }`}
                                     >
                                         Pemasukan (Masuk)
@@ -513,8 +553,8 @@ export default function HistoryPage() {
                                             type="button"
                                             onClick={() => setMobileWallet(w.name)}
                                             className={`px-3.5 py-2 rounded-xl text-xs font-bold border shrink-0 transition-all ${mobileWallet === w.name
-                                                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                                                    : `${inputBgClass} ${subTextClass}`
+                                                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                                                : `${inputBgClass} ${subTextClass}`
                                                 }`}
                                         >
                                             {w.name}

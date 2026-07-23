@@ -3,11 +3,11 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ShieldCheck, Mail, Lock, Loader2, ArrowRight, Sun, Moon } from 'lucide-react';
 
 export default function LoginPage() {
     const router = useRouter();
-    const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -23,35 +23,21 @@ export default function LoginPage() {
         setTheme(prev => prev === 'dark' ? 'light' : 'dark');
     };
 
-    const handleAuth = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setErrorMessage('');
 
-        if (isSignUp) {
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-            });
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
 
-            if (error) {
-                setErrorMessage(error.message);
-            } else if (data.user) {
-                alert('Pendaftaran berhasil! Silakan masuk dengan akun kamu.');
-                setIsSignUp(false);
-            }
+        if (error) {
+            setErrorMessage('Email atau password salah, silahkan coba kembali.');
         } else {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-
-            if (error) {
-                setErrorMessage('Email atau password salah, silahkan coba kembali.');
-            } else {
-                router.push('/');
-                router.refresh();
-            }
+            router.push('/');
+            router.refresh();
         }
 
         setLoading(false);
@@ -67,8 +53,7 @@ export default function LoginPage() {
                     </div>
                     <button
                         onClick={toggleTheme}
-                        className={`p-2 rounded-2xl border transition-all active:scale-95 ${isDark ? 'bg-zinc-800 border-zinc-700 text-yellow-400' : 'bg-slate-200 border-slate-300 text-indigo-600'
-                            }`}
+                        className={`p-2 rounded-2xl border transition-all active:scale-95 ${isDark ? 'bg-zinc-800 border-zinc-700 text-yellow-400' : 'bg-slate-200 border-slate-300 text-indigo-600'}`}
                     >
                         {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                     </button>
@@ -77,12 +62,10 @@ export default function LoginPage() {
                 <div className={`p-8 rounded-3xl border backdrop-blur-xl space-y-6 ${cardClass}`}>
                     <div>
                         <h1 className="text-2xl font-black tracking-tight">
-                            {isSignUp ? 'Buat Akun Baru' : 'Selamat Datang Kembali'}
+                            Selamat Datang
                         </h1>
                         <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
-                            {isSignUp
-                                ? 'Mulai perjalanan finansial sehat dan bebas judol kamu hari ini.'
-                                : 'Masuk ke akun kamu untuk mengelola arus kas dan limit harian.'}
+                            Masuk ke akun kamu untuk mengelola arus kas dan limit harian.
                         </p>
                     </div>
 
@@ -92,7 +75,7 @@ export default function LoginPage() {
                         </div>
                     )}
 
-                    <form onSubmit={handleAuth} className="space-y-4">
+                    <form onSubmit={handleLogin} className="space-y-4">
                         <div>
                             <label className={`text-xs font-semibold block mb-1.5 ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
                                 Email
@@ -136,7 +119,7 @@ export default function LoginPage() {
                                 <Loader2 className="w-5 h-5 animate-spin" />
                             ) : (
                                 <>
-                                    <span>{isSignUp ? 'Daftar Sekarang' : 'Masuk ke Dashboard'}</span>
+                                    <span>Masuk ke Dashboard</span>
                                     <ArrowRight className="w-4 h-4" />
                                 </>
                             )}
@@ -144,16 +127,9 @@ export default function LoginPage() {
                     </form>
 
                     <div className="pt-2 text-center border-t border-zinc-800/40">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setIsSignUp(!isSignUp);
-                                setErrorMessage('');
-                            }}
-                            className="text-xs text-emerald-500 hover:underline font-semibold"
-                        >
-                            {isSignUp ? 'Sudah punya akun? Masuk di sini' : 'Belum punya akun? Daftar gratis'}
-                        </button>
+                        <Link href="/signup" className="text-xs text-emerald-500 hover:underline font-semibold">
+                            Belum punya akun? Daftar gratis di sini!
+                        </Link>
                     </div>
                 </div>
             </div>

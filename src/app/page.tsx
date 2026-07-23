@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import {
   ResponsiveContainer,
@@ -25,8 +24,6 @@ import {
   Target,
   AlertTriangle,
   CalendarCheck,
-  Sun,
-  Moon,
   Flame,
   HelpCircle,
   BarChart3,
@@ -39,9 +36,9 @@ import {
   PieChart,
   ArrowUpCircle,
   ArrowDownCircle,
-  LogOut,
-  User as UserIcon
+  User
 } from 'lucide-react';
+import Toast from '@/components/Toast';
 
 interface WalletItem {
   id: number;
@@ -71,6 +68,14 @@ const SENSITIVE_KEYWORDS = [
   'maxwin', 'pragmatic', 'habanero', 'sbobet', 'judi', 'judionline', 'poker'
 ];
 
+const RECOVERY_ADVICES = [
+  'Transaksi dicatat ke Recovery Budget. Ingat, fokus pada tujuan finansial jangka panjang dan hindari impulsivitas demi masa depan yang lebih stabil!',
+  'Tetap tenang dan kendalikan keuanganmu. Setiap rupiah yang kamu hemat adalah langkah menuju kebebasan finansial!',
+  'Ingat komitmen awalmu! Uangmu jauh lebih berharga jika dialokasikan untuk hal-hal yang benar-benar produktif.'
+];
+
+const MIN_LIMIT_VALUE = 100000;
+
 const getCurrentLocalDateTime = () => {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60000;
@@ -90,6 +95,10 @@ const parseRupiahNumber = (val: string) => {
 export default function Home() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userMetadata, setUserMetadata] = useState<{ displayName: string; avatarUrl: string }>({
+    displayName: 'Pengguna',
+    avatarUrl: 'https://api.dicebear.com/7.x/lorelei/svg?seed=Aiden&backgroundColor=b6e3f4'
+  });
 
   const [wallets, setWallets] = useState<WalletItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -100,9 +109,11 @@ export default function Home() {
   const [submitting, setSubmitting] = useState(false);
 
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -122,17 +133,42 @@ export default function Home() {
   const [newWalletName, setNewWalletName] = useState('');
   const [newWalletBalance, setNewWalletBalance] = useState('');
 
+  const [inputMonthlyLimit, setInputMonthlyLimit] = useState('');
+  const [inputJudolLimit, setInputJudolLimit] = useState('');
+
   const amountInputRef = useRef<HTMLInputElement>(null);
 
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+  };
+
   useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'dark' | 'light';
+    if (savedTheme) {
+      setTheme(savedTheme);
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+
     const checkUserAndFetch = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/login');
         return;
       }
-      setCurrentUser(session.user);
-      fetchData(session.user.id);
+      const user = session.user;
+      setCurrentUser(user);
+
+      const meta = user.user_metadata || {};
+      setUserMetadata({
+        displayName: meta.display_name || user.email?.split('@')[0] || 'Pengguna',
+        avatarUrl: meta.avatar_url || 'https://api.dicebear.com/7.x/lorelei/svg?seed=Aiden&backgroundColor=b6e3f4'
+      });
+
+      fetchData(user.id);
     };
 
     checkUserAndFetch();
@@ -171,8 +207,15 @@ export default function Home() {
       .single();
 
     if (budgetData) {
-      setMonthlyLimit(Number(budgetData.monthly_limit) || 1500000);
-      setJudolLimit(Number(budgetData.judol_limit) || 300000);
+      const mLimit = Number(budgetData.monthly_limit) || 1500000;
+      const jLimit = Number(budgetData.judol_limit) || 300000;
+      setMonthlyLimit(mLimit);
+      setJudolLimit(jLimit);
+      setInputMonthlyLimit('Rp ' + mLimit.toLocaleString('id-ID'));
+      setInputJudolLimit('Rp ' + jLimit.toLocaleString('id-ID'));
+    } else {
+      setInputMonthlyLimit('Rp 1.500.000');
+      setInputJudolLimit('Rp 300.000');
     }
 
     setLoading(false);
@@ -186,13 +229,51 @@ export default function Home() {
     }
   }, [isMobileFormOpen]);
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  };
+  const handleUpdateBudget = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
+    const newMonthly = parseRupiahNumber(inputMonthlyLimit);
+    const newJudol = parseRupiahNumber(inputJudolLimit);
+
+    if (newMonthly < MIN_LIMIT_VALUE || newJudol < MIN_LIMIT_VALUE) {
+      showToast('Nilai limit tidak boleh kosong atau di bawah Rp 100.000!', 'error');
+      return;
+    }
+
+    setSubmitting(true);
+
+    const { data: existingBudget } = await supabase
+      .from('budgets')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .limit(1)
+      .single();
+
+    let error = null;
+    if (existingBudget) {
+      const res = await supabase
+        .from('budgets')
+        .update({ monthly_limit: newMonthly, judol_limit: newJudol })
+        .eq('user_id', currentUser.id);
+      error = res.error;
+    } else {
+      const res = await supabase
+        .from('budgets')
+        .insert([{ monthly_limit: newMonthly, judol_limit: newJudol, user_id: currentUser.id }]);
+      error = res.error;
+    }
+
+    setSubmitting(false);
+
+    if (error) {
+      showToast('Gagal memperbarui limit: ' + error.message, 'error');
+    } else {
+      setMonthlyLimit(newMonthly);
+      setJudolLimit(newJudol);
+      setIsBudgetModalOpen(false);
+      showToast('Target limit berhasil diperbarui!', 'success');
+    }
   };
 
   const handleAddItemRow = () => {
@@ -213,10 +294,6 @@ export default function Home() {
       updated[index][field] = value;
     }
     setItems(updated);
-  };
-
-  const triggerConfetti = () => {
-    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
   };
 
   const getWalletCalculatedBalance = (walletName: string) => {
@@ -349,20 +426,29 @@ export default function Home() {
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedWallet) return alert('Pilih dompet dulu ya, sayang!');
-    if (!currentUser) return alert('Sesi login kedaluwarsa, silakan login ulang.');
+    if (!selectedWallet) {
+      showToast('Pilih dompet dulu ya!', 'error');
+      return;
+    }
+    if (!currentUser) {
+      showToast('Sesi login kedaluwarsa, silakan login ulang.', 'error');
+      return;
+    }
 
     const validItems = items.filter(item => item.description.trim() !== '' && parseRupiahNumber(item.amount) > 0);
-    if (validItems.length === 0) return alert('Isi nominal dan keterangan yang valid ya!');
+    if (validItems.length === 0) {
+      showToast('Isi nominal dan keterangan yang valid ya!', 'error');
+      return;
+    }
 
     setSubmitting(true);
-    let hasJudol = false;
     const finalIsoDate = new Date(transactionDate).toISOString();
+    let containsSensitiveKeyword = false;
 
     for (const item of validItems) {
       const numericAmount = parseRupiahNumber(item.amount);
       const isJudol = SENSITIVE_KEYWORDS.some(kw => item.description.toLowerCase().includes(kw));
-      if (isJudol) hasJudol = true;
+      if (isJudol) containsSensitiveKeyword = true;
 
       const finalCategory = isJudol ? 'Special Recovery Tracker' : (transactionType === 'EXPENSE' ? 'Survival Mode' : 'Main Cashflow');
 
@@ -403,12 +489,18 @@ export default function Home() {
       }
     }
 
-    if (!hasJudol) triggerConfetti();
-
     setItems([{ description: '', amount: '' }]);
     setTransactionDate(getCurrentLocalDateTime());
     setSubmitting(false);
     setIsMobileFormOpen(false);
+
+    if (containsSensitiveKeyword) {
+      const randomAdvice = RECOVERY_ADVICES[Math.floor(Math.random() * RECOVERY_ADVICES.length)];
+      showToast(randomAdvice, 'error');
+    } else {
+      showToast('Transaksi berhasil dicatat!', 'success');
+    }
+
     fetchData(currentUser.id);
   };
 
@@ -427,8 +519,10 @@ export default function Home() {
       setNewWalletName('');
       setNewWalletBalance('');
       setIsWalletModalOpen(false);
-      triggerConfetti();
+      showToast('Dompet baru berhasil ditambahkan!', 'success');
       fetchData(currentUser.id);
+    } else {
+      showToast('Gagal menambahkan dompet: ' + error.message, 'error');
     }
     setSubmitting(false);
   };
@@ -441,8 +535,18 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen font-sans p-4 md:p-8 pb-28 md:pb-8 transition-colors duration-300 ${bgClass}`}>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <div className="max-w-4xl mx-auto space-y-6">
 
+        {/* HEADER */}
         <header className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 md:p-6 rounded-3xl border backdrop-blur-xl ${cardClass}`}>
           <div className="flex items-center justify-between w-full md:w-auto">
             <div>
@@ -476,6 +580,12 @@ export default function Home() {
             >
               <HistoryIcon className="w-3.5 h-3.5" /> Laporan Transaksi
             </Link>
+            <Link
+              href="/profile"
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${subTextClass} hover:text-zinc-200`}
+            >
+              <User className="w-3.5 h-3.5" /> Profil
+            </Link>
           </nav>
 
           <div className="flex items-center justify-between md:justify-end gap-3">
@@ -487,21 +597,21 @@ export default function Home() {
               <span>{isDailyOverbudget ? 'Streak Pecah!' : `${streakDays} Hari Clean!`}</span>
             </div>
 
-            <button
-              onClick={toggleTheme}
-              className={`p-2.5 rounded-2xl border transition-all active:scale-95 flex items-center justify-center ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-yellow-400 hover:bg-zinc-700' : 'bg-slate-200 border-slate-300 text-indigo-600 hover:bg-slate-300'
+            <Link
+              href="/profile"
+              title={userMetadata.displayName}
+              className={`flex items-center gap-2 p-1.5 pr-2.5 rounded-2xl border transition-all hover:border-emerald-500/50 ${isDark ? 'bg-zinc-800/60 border-zinc-700/60' : 'bg-white border-slate-200 shadow-sm'
                 }`}
             >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
-            <button
-              onClick={handleLogout}
-              title="Keluar Akun"
-              className={`p-2.5 rounded-2xl border transition-all active:scale-95 flex items-center justify-center text-rose-500 ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 hover:bg-rose-500/20' : 'bg-slate-200 border-slate-300 hover:bg-rose-100'}`}
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+              <img
+                src={userMetadata.avatarUrl}
+                alt="Avatar Mini"
+                className="w-7 h-7 rounded-xl object-cover border border-emerald-500/40 bg-emerald-500/10 shrink-0"
+              />
+              <span className="text-xs font-extrabold max-w-[100px] truncate">
+                {userMetadata.displayName}
+              </span>
+            </Link>
 
             <div className={`hidden md:block p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center gap-1">
@@ -517,6 +627,7 @@ export default function Home() {
           </div>
         </header>
 
+        {/* ACTIVE WALLETS */}
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <h2 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${subTextClass}`}>
@@ -561,17 +672,19 @@ export default function Home() {
           </div>
         </section>
 
-        <section className={`p-6 rounded-3xl border space-y-3 transition-all ${isDailyOverbudget
+        {/* DAILY LIMIT TRACKER */}
+        <section className={`p-5 md:p-6 rounded-3xl border space-y-3 transition-all ${isDailyOverbudget
           ? 'bg-rose-950/20 border-rose-500/40'
           : isDark
             ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
             : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
           }`}>
-          <div className="flex justify-between items-center">
-            <div className={`flex items-center gap-2 text-sm font-bold ${isDailyOverbudget ? 'text-rose-400' : isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
-              <CalendarCheck className="w-4 h-4 text-emerald-500" /> Daily Limit Tracker (Hari Ini)
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className={`flex items-center gap-2 text-xs md:text-sm font-bold ${isDailyOverbudget ? 'text-rose-400' : isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
+              <CalendarCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>Daily Limit Tracker (Hari Ini)</span>
             </div>
-            <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${isDailyOverbudget
+            <span className={`text-[11px] font-bold px-3 py-1 rounded-full border ${isDailyOverbudget
               ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
               : 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
               }`}>
@@ -601,10 +714,11 @@ export default function Home() {
           )}
         </section>
 
-        <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
-          <div className="flex justify-between items-center">
-            <h2 className="text-sm font-bold flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-emerald-500" /> Tren Pemasukan vs Pengeluaran Harian
+        {/* CHART */}
+        <section className={`p-5 md:p-6 rounded-3xl border space-y-4 ${cardClass}`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xs md:text-sm font-bold flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-emerald-500 shrink-0" /> Tren Pemasukan vs Pengeluaran Harian
             </h2>
             <div className="flex items-center gap-3 text-xs font-semibold">
               <span className="flex items-center gap-1 text-emerald-500"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Masuk</span>
@@ -640,6 +754,7 @@ export default function Home() {
           </div>
         </section>
 
+        {/* BUDGET CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <section className={`p-6 rounded-3xl border space-y-3 ${cardClass}`}>
             <div className="flex justify-between items-center">
@@ -669,7 +784,7 @@ export default function Home() {
           <section className={`p-6 rounded-3xl border space-y-3 ${isDark ? 'bg-zinc-900/60 border-rose-500/40' : 'bg-white border-rose-300 shadow-sm'}`}>
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2 text-sm font-bold text-rose-400">
-                <AlertTriangle className="w-4 h-4 text-rose-500" /> Recovery Budget (Max 300k)
+                <AlertTriangle className="w-4 h-4 text-rose-500" /> Recovery Budget
                 <button onClick={() => setActiveTooltip('recoveryBudget')} className="p-0.5">
                   <HelpCircle className="w-3.5 h-3.5 text-rose-400/70" />
                 </button>
@@ -695,6 +810,7 @@ export default function Home() {
           </section>
         </div>
 
+        {/* REKAPITULASI */}
         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
           <div className="space-y-2">
             <h2 className="text-sm font-bold flex items-center gap-2">
@@ -702,8 +818,8 @@ export default function Home() {
             </h2>
 
             <div className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border transition-all cursor-pointer ${isDark
-                ? 'bg-zinc-950/80 border-emerald-500/40 hover:border-emerald-400 [color-scheme:dark]'
-                : 'bg-emerald-50 border-emerald-200 hover:border-emerald-400 shadow-sm [color-scheme:light]'
+              ? 'bg-zinc-950/80 border-emerald-500/40 hover:border-emerald-400 [color-scheme:dark]'
+              : 'bg-emerald-50 border-emerald-200 hover:border-emerald-400 shadow-sm [color-scheme:light]'
               }`}>
               <Filter className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
               <input
@@ -758,6 +874,7 @@ export default function Home() {
           </div>
         </section>
 
+        {/* DESKTOP FORM */}
         <section className={`hidden lg:block p-6 rounded-3xl border backdrop-blur-xl space-y-4 ${cardClass}`}>
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold flex items-center gap-2">
@@ -908,34 +1025,52 @@ export default function Home() {
 
       </div>
 
-      <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-6 py-2 border-t backdrop-blur-xl flex justify-between items-center ${isDark ? 'bg-zinc-900/90 border-zinc-800 text-zinc-400' : 'bg-white/90 border-slate-200 text-slate-600'
+      {/* BOTTOM NAVIGATION (MOBILE) - PRESISI 3 KOLOM SIMETRIS */}
+      <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-4 py-2 border-t backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-800 text-zinc-400' : 'bg-white/95 border-slate-200 text-slate-600'
         }`}>
-        <Link
-          href="/"
-          className="flex flex-col items-center gap-1 text-emerald-500 font-bold text-[10px]"
-        >
-          <HomeIcon className="w-5 h-5" />
-          <span>Dashboard</span>
-        </Link>
+        <div className="grid grid-cols-3 items-center w-full max-w-sm mx-auto">
 
-        <div className="relative -top-5">
-          <button
-            onClick={() => setIsMobileFormOpen(true)}
-            className="w-12 h-12 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 border border-emerald-400"
-          >
-            <Plus className="w-6 h-6 stroke-[3]" />
-          </button>
+          <div className="flex items-center justify-around">
+            <Link
+              href="/"
+              className="flex flex-col items-center justify-center gap-1 text-emerald-500 font-bold text-[10px]"
+            >
+              <HomeIcon className="w-5 h-5" />
+              <span>Dashboard</span>
+            </Link>
+
+            <Link
+              href="/history"
+              className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
+            >
+              <HistoryIcon className="w-5 h-5" />
+              <span>Laporan</span>
+            </Link>
+          </div>
+
+          <div className="flex justify-center items-center relative -top-5">
+            <button
+              onClick={() => setIsMobileFormOpen(true)}
+              className="w-12 h-12 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 border border-emerald-400"
+            >
+              <Plus className="w-6 h-6 stroke-[3]" />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-center">
+            <Link
+              href="/profile"
+              className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
+            >
+              <User className="w-5 h-5" />
+              <span>Profil</span>
+            </Link>
+          </div>
+
         </div>
-
-        <Link
-          href="/history"
-          className={`flex flex-col items-center gap-1 font-semibold text-[10px] ${subTextClass}`}
-        >
-          <HistoryIcon className="w-5 h-5" />
-          <span>Laporan</span>
-        </Link>
       </nav>
 
+      {/* MOBILE FORM MODAL */}
       {isMobileFormOpen && (
         <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end animate-in fade-in duration-200">
           <div className={`w-full p-5 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
@@ -985,8 +1120,8 @@ export default function Home() {
                     type="button"
                     onClick={() => setTransactionType('EXPENSE')}
                     className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${transactionType === 'EXPENSE'
-                        ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-500/20'
-                        : `${inputBgClass} ${subTextClass}`
+                      ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-500/20'
+                      : `${inputBgClass} ${subTextClass}`
                       }`}
                   >
                     Pengeluaran (Keluar)
@@ -995,8 +1130,8 @@ export default function Home() {
                     type="button"
                     onClick={() => setTransactionType('INCOME')}
                     className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${transactionType === 'INCOME'
-                        ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md shadow-emerald-500/20'
-                        : `${inputBgClass} ${subTextClass}`
+                      ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md shadow-emerald-500/20'
+                      : `${inputBgClass} ${subTextClass}`
                       }`}
                   >
                     Pemasukan (Masuk)
@@ -1013,8 +1148,8 @@ export default function Home() {
                       type="button"
                       onClick={() => setSelectedWallet(w.name)}
                       className={`px-3.5 py-2 rounded-xl text-xs font-bold border shrink-0 transition-all ${selectedWallet === w.name
-                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                          : `${inputBgClass} ${subTextClass}`
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                        : `${inputBgClass} ${subTextClass}`
                         }`}
                     >
                       {w.name}
@@ -1054,6 +1189,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* TOOLTIP MODAL */}
       {activeTooltip && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-3xl w-full max-w-sm space-y-3 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900 shadow-xl'
@@ -1074,6 +1210,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* WALLET MODAL */}
       {isWalletModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-3xl w-full max-w-md space-y-4 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200 shadow-2xl'
@@ -1120,6 +1257,62 @@ export default function Home() {
                 className="w-full mt-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Dompet'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* BUDGET MODAL */}
+      {isBudgetModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className={`p-6 rounded-3xl w-full max-w-md space-y-4 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200 shadow-2xl'
+            }`}>
+            <button
+              onClick={() => setIsBudgetModalOpen(false)}
+              className={`absolute top-4 right-4 p-1 ${subTextClass}`}
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-lg font-bold flex items-center gap-2 text-emerald-500">
+              <Target className="w-5 h-5" /> Atur Target & Limit Keuangan
+            </h3>
+            <p className={`text-xs ${subTextClass}`}>
+              Sesuaikan limit bulanan dan target recovery kamu kapan saja agar sesuai dengan kondisi finansial. Minimal Rp 100.000.
+            </p>
+
+            <form className="space-y-3" onSubmit={handleUpdateBudget}>
+              <div>
+                <label className={`text-xs mb-1 block ${subTextClass}`}>Monthly Budget Limit (Rp)</label>
+                <input
+                  type="text"
+                  placeholder="Rp 1.500.000"
+                  value={inputMonthlyLimit}
+                  onChange={(e) => setInputMonthlyLimit(formatRupiahInput(e.target.value))}
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm font-semibold focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`text-xs mb-1 block ${subTextClass}`}>Recovery Budget Limit (Rp)</label>
+                <input
+                  type="text"
+                  placeholder="Rp 300.000"
+                  value={inputJudolLimit}
+                  onChange={(e) => setInputJudolLimit(formatRupiahInput(e.target.value))}
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm font-semibold focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full mt-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Target Baru'}
               </button>
             </form>
           </div>
