@@ -2,21 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { 
-  Wallet, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Plus, 
-  CreditCard, 
-  TrendingUp, 
-  Receipt, 
+import {
+  Wallet,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Plus,
+  CreditCard,
+  TrendingUp,
+  Receipt,
   Sparkles,
   ShieldCheck,
   Loader2,
   X,
   Target,
   AlertTriangle,
-  Gift
+  Gift,
+  CalendarCheck
 } from 'lucide-react';
 
 interface WalletItem {
@@ -36,7 +37,7 @@ interface Transaction {
 }
 
 const SENSITIVE_KEYWORDS = [
-  'slot', 'depo', 'judol', 'zeus', 'olympus', 'gacor', 
+  'slot', 'depo', 'judol', 'zeus', 'olympus', 'gacor',
   'maxwin', 'pragmatic', 'habanero', 'sbobet', 'judi', 'judionline', 'poker'
 ];
 
@@ -45,7 +46,7 @@ export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [monthlyLimit, setMonthlyLimit] = useState(1500000);
   const [judolLimit, setJudolLimit] = useState(300000);
-  
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
@@ -64,7 +65,7 @@ export default function Home() {
 
   const fetchData = async () => {
     setLoading(true);
-    
+
     // Fetch Wallets
     const { data: walletData } = await supabase.from('wallets').select('*').order('id', { ascending: true });
     if (walletData) {
@@ -79,7 +80,7 @@ export default function Home() {
       .from('transactions')
       .select('*')
       .order('id', { ascending: false });
-      
+
     if (transData) setTransactions(transData);
 
     // Fetch Budget Settings
@@ -102,7 +103,7 @@ export default function Home() {
     const lowerText = text.toLowerCase();
     const detected = SENSITIVE_KEYWORDS.some(kw => lowerText.includes(kw));
     setIsJudolDetected(detected);
-    
+
     if (detected) {
       setType('EXPENSE');
       setCategory('Special Recovery Tracker');
@@ -143,8 +144,8 @@ export default function Home() {
     // Update Saldo Dompet
     const targetWallet = wallets.find(w => w.name === selectedWallet);
     if (targetWallet) {
-      const newBalance = type === 'INCOME' 
-        ? Number(targetWallet.balance) + numericAmount 
+      const newBalance = type === 'INCOME'
+        ? Number(targetWallet.balance) + numericAmount
         : Number(targetWallet.balance) - numericAmount;
 
       await supabase
@@ -186,7 +187,7 @@ export default function Home() {
 
   // Kalkulasi Keuangan
   const totalBalance = wallets.reduce((acc, curr) => acc + (Number(curr.balance) || 0), 0);
-  
+
   const totalExpenseThisMonth = transactions
     .filter(t => t.type?.toUpperCase() === 'EXPENSE')
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
@@ -201,16 +202,30 @@ export default function Home() {
     })
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
+  // KALKULASI LIMIT HARIAN (DAILY LIMIT)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayExpense = transactions
+    .filter(t => {
+      const isExpense = t.type?.toUpperCase() === 'EXPENSE';
+      const isToday = t.created_at && t.created_at.startsWith(todayStr);
+      return isExpense && isToday;
+    })
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  // Basic daily limit (Limit Bulanan / 30 hari)
+  const baseDailyLimit = Math.round(monthlyLimit / 30);
+  const rewardBonus = Math.max(judolLimit - totalJudolExpense, 0);
+  const totalDailyLimit = baseDailyLimit + Math.round(rewardBonus / 30);
+  const remainingDailyLimit = totalDailyLimit - todayExpense;
+  const dailyUsagePercentage = Math.min(Math.round((todayExpense / totalDailyLimit) * 100), 100);
+
   const budgetUsagePercentage = Math.min(Math.round((totalExpenseThisMonth / monthlyLimit) * 100), 100);
   const judolUsagePercentage = Math.min(Math.round((totalJudolExpense / judolLimit) * 100), 100);
-
-  // Reward System: Sisa limit yang berhasil dihemat dikonversi jadi Bonus Allowance
-  const rewardBonus = Math.max(judolLimit - totalJudolExpense, 0);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        
+
         {/* Header Section */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl">
           <div>
@@ -233,9 +248,35 @@ export default function Home() {
           </div>
         </header>
 
+        {/* Daily Allowance Tracker Widget (BARU! ✨) */}
+        <section className="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border border-emerald-500/30 space-y-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2 text-sm font-bold text-emerald-300">
+              <CalendarCheck className="w-4 h-4 text-emerald-400" /> Daily Limit Tracker (Hari Ini)
+            </div>
+            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+              Sisa Limit: Rp {remainingDailyLimit.toLocaleString('id-ID')}
+            </span>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-zinc-400 font-medium">
+              <span>Terpakai Hari Ini: Rp {todayExpense.toLocaleString('id-ID')}</span>
+              <span>Jatah Harian (+Reward): Rp {totalDailyLimit.toLocaleString('id-ID')}</span>
+            </div>
+            <div className="w-full h-3 bg-zinc-950 rounded-full overflow-hidden p-0.5 border border-zinc-800">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${dailyUsagePercentage > 85 ? 'bg-rose-500' : dailyUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-400'
+                  }`}
+                style={{ width: `${dailyUsagePercentage}%` }}
+              ></div>
+            </div>
+          </div>
+        </section>
+
         {/* Budget Trackers Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
+
           {/* Monthly Budget Tracker */}
           <section className="p-6 rounded-3xl bg-gradient-to-r from-zinc-900 to-zinc-900/80 border border-zinc-800/80 space-y-3">
             <div className="flex justify-between items-center">
@@ -253,10 +294,9 @@ export default function Home() {
                 <span>Limit: Rp {monthlyLimit.toLocaleString('id-ID')}</span>
               </div>
               <div className="w-full h-3 bg-zinc-950 rounded-full overflow-hidden p-0.5 border border-zinc-800">
-                <div 
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    budgetUsagePercentage > 85 ? 'bg-rose-500' : budgetUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-400'
-                  }`}
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${budgetUsagePercentage > 85 ? 'bg-rose-500' : budgetUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-400'
+                    }`}
                   style={{ width: `${budgetUsagePercentage}%` }}
                 ></div>
               </div>
@@ -280,10 +320,9 @@ export default function Home() {
                 <span>Max: Rp {judolLimit.toLocaleString('id-ID')}</span>
               </div>
               <div className="w-full h-3 bg-zinc-950 rounded-full overflow-hidden p-0.5 border border-zinc-800">
-                <div 
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    judolUsagePercentage > 80 ? 'bg-rose-600' : judolUsagePercentage > 40 ? 'bg-amber-500' : 'bg-emerald-500'
-                  }`}
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${judolUsagePercentage > 80 ? 'bg-rose-600' : judolUsagePercentage > 40 ? 'bg-amber-500' : 'bg-emerald-500'
+                    }`}
                   style={{ width: `${judolUsagePercentage}%` }}
                 ></div>
               </div>
@@ -303,7 +342,7 @@ export default function Home() {
                 Rewarding System Active <Sparkles className="w-4 h-4 text-yellow-400" />
               </h3>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Hemat anggaran recovery bulan ini untuk dijadikan bonus limit pengeluaran harian!
+                Sisa hemat recovery otomatis menambah limit harian kamu sebesar <strong className="text-emerald-400">+Rp {Math.round(rewardBonus / 30).toLocaleString('id-ID')}/hari</strong>!
               </p>
             </div>
           </div>
@@ -319,7 +358,7 @@ export default function Home() {
             <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-emerald-400" /> Active Wallets
             </h2>
-            <button 
+            <button
               onClick={() => setIsWalletModalOpen(true)}
               className="text-xs text-emerald-400 hover:underline flex items-center gap-1 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 active:scale-95 transition-all"
             >
@@ -332,8 +371,8 @@ export default function Home() {
               <p className="text-xs text-zinc-500 col-span-3">Memuat dompet...</p>
             ) : (
               wallets.map((w) => (
-                <div 
-                  key={w.id} 
+                <div
+                  key={w.id}
                   className="p-5 rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-900/40 border border-zinc-800/80 hover:border-emerald-500/40 transition-all duration-300 group"
                 >
                   <div className="flex justify-between items-start mb-3">
@@ -353,7 +392,7 @@ export default function Home() {
 
         {/* Form Transaction & Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          
+
           {/* Form Quick Add */}
           <section className="lg:col-span-2 p-6 rounded-3xl bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-xl space-y-4">
             <h2 className="text-base font-bold text-zinc-200 flex items-center gap-2">
@@ -364,14 +403,13 @@ export default function Home() {
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Keterangan</label>
                 <div className="relative">
-                  <input 
-                    type="text" 
-                    placeholder="misal: Kopi / Depo (Auto Detect)" 
+                  <input
+                    type="text"
+                    placeholder="misal: Kopi / Depo (Auto Detect)"
                     value={description}
                     onChange={(e) => handleDescriptionChange(e.target.value)}
-                    className={`w-full bg-zinc-950 border rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none transition-all ${
-                      isJudolDetected ? 'border-rose-500/80 ring-1 ring-rose-500' : 'border-zinc-800 focus:border-emerald-500'
-                    }`}
+                    className={`w-full bg-zinc-950 border rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none transition-all ${isJudolDetected ? 'border-rose-500/80 ring-1 ring-rose-500' : 'border-zinc-800 focus:border-emerald-500'
+                      }`}
                     required
                   />
                   {isJudolDetected && (
@@ -384,9 +422,9 @@ export default function Home() {
 
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Nominal (Rp)</label>
-                <input 
-                  type="number" 
-                  placeholder="0" 
+                <input
+                  type="number"
+                  placeholder="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500 transition-all"
@@ -397,7 +435,7 @@ export default function Home() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-zinc-400 mb-1 block">Tipe</label>
-                  <select 
+                  <select
                     value={type}
                     onChange={(e) => {
                       setType(e.target.value);
@@ -414,7 +452,7 @@ export default function Home() {
                 </div>
                 <div>
                   <label className="text-xs text-zinc-400 mb-1 block">Dompet</label>
-                  <select 
+                  <select
                     value={selectedWallet}
                     onChange={(e) => setSelectedWallet(e.target.value)}
                     className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
@@ -426,14 +464,13 @@ export default function Home() {
                 </div>
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={submitting}
-                className={`w-full mt-2 font-bold py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 ${
-                  isJudolDetected 
-                    ? 'bg-rose-500 hover:bg-rose-400 text-zinc-950 shadow-rose-500/20' 
+                className={`w-full mt-2 font-bold py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 ${isJudolDetected
+                    ? 'bg-rose-500 hover:bg-rose-400 text-zinc-950 shadow-rose-500/20'
                     : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20'
-                }`}
+                  }`}
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Lock It In ✨'}
               </button>
@@ -457,32 +494,29 @@ export default function Home() {
                   const isJudol = t.category === 'Special Recovery Tracker' || SENSITIVE_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw));
 
                   return (
-                    <div 
-                      key={t.id} 
-                      className={`p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
-                        isJudol 
-                          ? 'bg-rose-950/20 border-rose-900/40 hover:border-rose-700/50' 
+                    <div
+                      key={t.id}
+                      className={`p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all ${isJudol
+                          ? 'bg-rose-950/20 border-rose-900/40 hover:border-rose-700/50'
                           : 'bg-zinc-950/60 border-zinc-800/60 hover:border-zinc-700'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`p-2.5 rounded-xl ${
-                          isJudol
+                        <div className={`p-2.5 rounded-xl ${isJudol
                             ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                            : isIncome 
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                            : isIncome
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                               : 'bg-zinc-800 text-zinc-400 border border-zinc-700/50'
-                        }`}>
+                          }`}>
                           {isIncome ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                         </div>
                         <div>
                           <h3 className="text-sm font-semibold text-zinc-100">{t.description}</h3>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                              isJudol 
-                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${isJudol
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                                 : 'bg-zinc-800 text-zinc-400'
-                            }`}>
+                              }`}>
                               {t.category || 'General'}
                             </span>
                             {t.wallet_name && <span className="text-[10px] text-zinc-500">• {t.wallet_name}</span>}
@@ -491,9 +525,8 @@ export default function Home() {
                       </div>
 
                       <div className="text-right">
-                        <span className={`text-sm font-bold ${
-                          isIncome ? 'text-emerald-400' : isJudol ? 'text-rose-400' : 'text-zinc-200'
-                        }`}>
+                        <span className={`text-sm font-bold ${isIncome ? 'text-emerald-400' : isJudol ? 'text-rose-400' : 'text-zinc-200'
+                          }`}>
                           {isIncome ? '+' : '-'} Rp {(Number(t.amount) || 0).toLocaleString('id-ID')}
                         </span>
                       </div>
@@ -512,7 +545,7 @@ export default function Home() {
       {isWalletModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl w-full max-w-md space-y-4 relative animate-in fade-in zoom-in-95 duration-200">
-            <button 
+            <button
               onClick={() => setIsWalletModalOpen(false)}
               className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-100 p-1"
             >
@@ -526,9 +559,9 @@ export default function Home() {
             <form className="space-y-3" onSubmit={handleAddWallet}>
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Nama Dompet / Bank</label>
-                <input 
-                  type="text" 
-                  placeholder="misal: BCA / GoPay / Seabank" 
+                <input
+                  type="text"
+                  placeholder="misal: BCA / GoPay / Seabank"
                   value={newWalletName}
                   onChange={(e) => setNewWalletName(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
@@ -538,9 +571,9 @@ export default function Home() {
 
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Saldo Awal (Rp)</label>
-                <input 
-                  type="number" 
-                  placeholder="0" 
+                <input
+                  type="number"
+                  placeholder="0"
                   value={newWalletBalance}
                   onChange={(e) => setNewWalletBalance(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-emerald-500"
@@ -548,8 +581,8 @@ export default function Home() {
                 />
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={submitting}
                 className="w-full mt-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
               >
