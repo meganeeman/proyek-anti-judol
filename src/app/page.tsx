@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import confetti from 'canvas-confetti';
 import Link from 'next/link';
@@ -114,6 +114,8 @@ export default function Home() {
   const [newWalletName, setNewWalletName] = useState('');
   const [newWalletBalance, setNewWalletBalance] = useState('');
 
+  const amountInputRef = useRef<HTMLInputElement>(null);
+
   const fetchData = async () => {
     setLoading(true);
 
@@ -145,6 +147,14 @@ export default function Home() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (isMobileFormOpen) {
+      setTimeout(() => {
+        amountInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isMobileFormOpen]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -283,17 +293,19 @@ export default function Home() {
 
   const chartData = getDailyChartData();
 
+  const today = new Date();
+  const currentDay = today.getDate();
+  const proRataLimitAllowed = currentDay * baseDailyLimit;
+  const isProRataOverbudget = totalExpenseThisMonth > proRataLimitAllowed;
+
   const getProRataSmartInsight = () => {
-    const today = new Date();
-    const currentDay = today.getDate();
-    const proRataLimitAllowed = currentDay * baseDailyLimit;
     const diff = proRataLimitAllowed - totalExpenseThisMonth;
 
     if (totalExpenseThisMonth === 0) {
       return "Disiplin sempurna! Belum ada pengeluaran yang tercatat di bulan ini. Pertahankan!";
     }
 
-    if (totalExpenseThisMonth <= proRataLimitAllowed) {
+    if (!isProRataOverbudget) {
       return `Disiplin Hebat! Pengeluaran kamu hemat Rp ${diff.toLocaleString('id-ID')} dari jatah pro-rata s/d hari ke-${currentDay}!`;
     } else {
       return `Peringatan Overbudget! Pengeluaran melebihi target jatah pro-rata s/d hari ke-${currentDay} sebesar Rp ${Math.abs(diff).toLocaleString('id-ID')}.`;
@@ -305,7 +317,7 @@ export default function Home() {
     if (!selectedWallet) return alert('Pilih dompet dulu ya, sayang!');
 
     const validItems = items.filter(item => item.description.trim() !== '' && parseRupiahNumber(item.amount) > 0);
-    if (validItems.length === 0) return alert('Isi minimal 1 barang dengan nominal valid ya!');
+    if (validItems.length === 0) return alert('Isi nominal dan keterangan yang valid ya!');
 
     setSubmitting(true);
     let hasJudol = false;
@@ -555,8 +567,15 @@ export default function Home() {
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#27272a' : '#e2e8f0'} />
                 <XAxis dataKey="date" stroke={isDark ? '#71717a' : '#64748b'} fontSize={11} tickLine={false} />
-                <YAxis stroke={isDark ? '#71717a' : '#64748b'} fontSize={10} tickLine={false} width={40} />
+                <YAxis
+                  stroke={isDark ? '#71717a' : '#64748b'}
+                  fontSize={10}
+                  tickLine={false}
+                  width={60}
+                  tickFormatter={(val) => `Rp ${(val / 1000).toFixed(0)}k`}
+                />
                 <RechartsTooltip
+                  formatter={(value: any) => [`Rp ${Number(value).toLocaleString('id-ID')}`, '']}
                   contentStyle={{
                     backgroundColor: isDark ? '#18181b' : '#ffffff',
                     borderColor: isDark ? '#27272a' : '#e2e8f0',
@@ -672,7 +691,11 @@ export default function Home() {
             </div>
           </div>
 
-          <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed font-medium ${isDark ? 'bg-emerald-950/10 border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed font-medium transition-colors ${isProRataOverbudget
+            ? 'bg-rose-950/20 border-rose-500/40 text-rose-400'
+            : isDark
+              ? 'bg-emerald-950/10 border-emerald-500/20 text-emerald-300'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
             }`}>
             Smart Pro-Rata Evaluator: {getProRataSmartInsight()}
           </div>
@@ -858,8 +881,11 @@ export default function Home() {
 
       {isMobileFormOpen && (
         <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end animate-in fade-in duration-200">
-          <div className={`w-full p-6 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
+          <div className={`w-full p-5 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
             }`}>
+
+            <div className="w-12 h-1.5 bg-zinc-700/60 rounded-full mx-auto -mt-1 mb-2"></div>
+
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-emerald-500" /> Catat Transaksi Instan
@@ -869,7 +895,77 @@ export default function Home() {
               </button>
             </div>
 
-            <form className="space-y-3" onSubmit={handleAddTransaction}>
+            <form className="space-y-4" onSubmit={handleAddTransaction}>
+              <div>
+                <label className={`text-xs mb-1 block font-semibold ${subTextClass}`}>Nominal (Rp)</label>
+                <input
+                  ref={amountInputRef}
+                  type="text"
+                  placeholder="Rp 0"
+                  value={items[0].amount}
+                  onChange={(e) => handleItemChange(0, 'amount', e.target.value)}
+                  className={`w-full border rounded-2xl px-4 py-3 text-lg font-black focus:outline-none focus:border-emerald-500 transition-all ${inputBgClass}`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`text-xs mb-1 block font-semibold ${subTextClass}`}>Keterangan</label>
+                <input
+                  type="text"
+                  placeholder="misal: Kopi / Nasi Goreng"
+                  value={items[0].description}
+                  onChange={(e) => handleItemChange(0, 'description', e.target.value)}
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none transition-all ${inputBgClass}`}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className={`text-xs mb-1.5 block font-semibold ${subTextClass}`}>Tipe Transaksi</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTransactionType('EXPENSE')}
+                    className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${transactionType === 'EXPENSE'
+                        ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-500/20'
+                        : `${inputBgClass} ${subTextClass}`
+                      }`}
+                  >
+                    Pengeluaran (Keluar)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTransactionType('INCOME')}
+                    className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${transactionType === 'INCOME'
+                        ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md shadow-emerald-500/20'
+                        : `${inputBgClass} ${subTextClass}`
+                      }`}
+                  >
+                    Pemasukan (Masuk)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className={`text-xs mb-1.5 block font-semibold ${subTextClass}`}>Pilih Dompet</label>
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                  {wallets.map((w) => (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={() => setSelectedWallet(w.name)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold border shrink-0 transition-all ${selectedWallet === w.name
+                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                          : `${inputBgClass} ${subTextClass}`
+                        }`}
+                    >
+                      {w.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className={`text-xs block ${subTextClass}`}>Waktu</label>
@@ -878,71 +974,21 @@ export default function Home() {
                     onClick={() => setTransactionDate(getCurrentLocalDateTime())}
                     className="text-[10px] text-emerald-500 hover:underline flex items-center gap-0.5"
                   >
-                    <Clock className="w-2.5 h-2.5" /> Set Jam Sekarang
+                    <Clock className="w-2.5 h-2.5" /> Jam Sekarang
                   </button>
                 </div>
                 <input
                   type="datetime-local"
                   value={transactionDate}
                   onChange={(e) => setTransactionDate(e.target.value)}
-                  className={`w-full border rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
+                  className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
                 />
-              </div>
-
-              <div>
-                <label className={`text-xs mb-1 block ${subTextClass}`}>Keterangan</label>
-                <input
-                  type="text"
-                  placeholder="misal: Kopi / Depo"
-                  value={items[0].description}
-                  onChange={(e) => handleItemChange(0, 'description', e.target.value)}
-                  className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none transition-all ${inputBgClass}`}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className={`text-xs mb-1 block ${subTextClass}`}>Nominal (Rp)</label>
-                <input
-                  type="text"
-                  placeholder="Rp 0"
-                  value={items[0].amount}
-                  onChange={(e) => handleItemChange(0, 'amount', e.target.value)}
-                  className={`w-full border rounded-xl px-3 py-3 text-sm font-semibold focus:outline-none focus:border-emerald-500 transition-all ${inputBgClass}`}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={`text-xs mb-1 block ${subTextClass}`}>Tipe</label>
-                  <select
-                    value={transactionType}
-                    onChange={(e) => setTransactionType(e.target.value)}
-                    className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
-                  >
-                    <option value="EXPENSE">Keluar</option>
-                    <option value="INCOME">Masuk</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={`text-xs mb-1 block ${subTextClass}`}>Dompet</label>
-                  <select
-                    value={selectedWallet}
-                    onChange={(e) => setSelectedWallet(e.target.value)}
-                    className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
-                  >
-                    {wallets.map(w => (
-                      <option key={w.id} value={w.name}>{w.name}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full mt-3 font-bold py-3.5 rounded-xl transition-all shadow-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                className="w-full mt-2 font-bold py-3.5 rounded-xl transition-all shadow-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Catat Sekarang'}
               </button>
