@@ -6,16 +6,15 @@ import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
-  Tooltip as RechartsTooltip
+  Tooltip as RechartsTooltip,
+  CartesianGrid
 } from 'recharts';
 import {
   Wallet,
-  ArrowUpRight,
-  ArrowDownLeft,
   Plus,
   CreditCard,
   TrendingUp,
@@ -36,7 +35,11 @@ import {
   Home as HomeIcon,
   Trash2,
   Layers,
-  Clock
+  Clock,
+  Filter,
+  PieChart,
+  ArrowUpCircle,
+  ArrowDownCircle
 } from 'lucide-react';
 
 interface WalletItem {
@@ -65,7 +68,6 @@ const SENSITIVE_KEYWORDS = [
   'maxwin', 'pragmatic', 'habanero', 'sbobet', 'judi', 'judionline', 'poker'
 ];
 
-// Helper Function: Ambil Waktu Lokal Sekarang Format YYYY-MM-THH:mm
 const getCurrentLocalDateTime = () => {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60000;
@@ -90,12 +92,16 @@ export default function Home() {
   // Theme State
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
+  // Filter Bulan State (Gaya Plaza)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+
   // Multi-Row Item State
   const [items, setItems] = useState<ItemRow[]>([{ description: '', amount: '' }]);
   const [selectedWallet, setSelectedWallet] = useState('');
   const [transactionType, setTransactionType] = useState('EXPENSE');
-
-  // State Waktu Transaksi (Otomatis Terisi Jam Sekarang ⏱️)
   const [transactionDate, setTransactionDate] = useState(getCurrentLocalDateTime());
 
   // Split-Bill State
@@ -163,7 +169,137 @@ export default function Home() {
     confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
   };
 
-  // Handle Submit Transaksi
+  // Kalkulasi Dynamic Balance Presisi
+  const getWalletCalculatedBalance = (walletName: string) => {
+    const initialWallet = wallets.find(w => w.name === walletName);
+    const initialBalance = Number(initialWallet?.balance) || 0;
+
+    const netTransactionChange = transactions
+      .filter(t => t.wallet_name === walletName)
+      .reduce((acc, curr) => {
+        const amt = Number(curr.amount) || 0;
+        return curr.type?.toUpperCase() === 'INCOME' ? acc + amt : acc - amt;
+      }, 0);
+
+    return initialBalance + netTransactionChange;
+  };
+
+  const totalCalculatedBalance = wallets.reduce((acc, curr) => acc + getWalletCalculatedBalance(curr.name), 0);
+
+  // Filter Transaksi Berdasarkan Bulan Pilihan (Gaya Plaza)
+  const filteredTransactions = transactions.filter(t => {
+    if (!t.created_at) return false;
+    return t.created_at.startsWith(selectedMonth);
+  });
+
+  const totalIncomeThisMonth = filteredTransactions
+    .filter(t => t.type?.toUpperCase() === 'INCOME')
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  const totalExpenseThisMonth = filteredTransactions
+    .filter(t => t.type?.toUpperCase() === 'EXPENSE')
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  const netSavingsThisMonth = totalIncomeThisMonth - totalExpenseThisMonth;
+
+  // Recovery Budget & Judol Expenses Calculation
+  const totalJudolExpense = filteredTransactions
+    .filter(t => {
+      const isExpense = t.type?.toUpperCase() === 'EXPENSE';
+      const isJudolCategory = t.category === 'Special Recovery Tracker';
+      const hasKeyword = SENSITIVE_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw));
+      return isExpense && (isJudolCategory || hasKeyword);
+    })
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  // Daily Allowance & Overbudget Punishment Logic
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayExpense = transactions
+    .filter(t => {
+      const isExpense = t.type?.toUpperCase() === 'EXPENSE';
+      const isToday = t.created_at && t.created_at.startsWith(todayStr);
+      return isExpense && isToday;
+    })
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  const baseDailyLimit = Math.round(monthlyLimit / 30);
+  const remainingDailyLimit = baseDailyLimit - todayExpense;
+  const isDailyOverbudget = remainingDailyLimit < 0;
+  const overbudgetAmount = isDailyOverbudget ? Math.abs(remainingDailyLimit) : 0;
+
+  // Real Overbudget Punishment Penalty to Recovery Budget
+  const effectiveJudolExpense = totalJudolExpense + overbudgetAmount;
+  const dailyUsagePercentage = Math.min(Math.round((todayExpense / baseDailyLimit) * 100), 100);
+
+  const budgetUsagePercentage = Math.min(Math.round((totalExpenseThisMonth / monthlyLimit) * 100), 100);
+  const judolUsagePercentage = Math.min(Math.round((effectiveJudolExpense / judolLimit) * 100), 100);
+
+  // Streak Counter with Overbudget Punishment Check
+  const calculateStreakDays = () => {
+    if (isDailyOverbudget) return 0; // Streak pecah jika overbudget hari ini!
+
+    const judolTransactions = transactions.filter(t =>
+      t.type?.toUpperCase() === 'EXPENSE' &&
+      (t.category === 'Special Recovery Tracker' || SENSITIVE_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw)))
+    );
+
+    if (judolTransactions.length === 0) return 30;
+
+    const lastJudolDate = new Date(judolTransactions[0].created_at);
+    const today = new Date();
+    const diffTime = Math.abs(today.getTime() - lastJudolDate.getTime());
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const streakDays = calculateStreakDays();
+
+  // Olah Data Dual Line Chart Harian (7 Hari Terakhir)
+  const getDailyChartData = () => {
+    const daysMap: { [key: string]: { income: number; expense: number } } = {};
+    const result = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const displayLabel = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+      daysMap[dateStr] = { income: 0, expense: 0 };
+
+      transactions.forEach(t => {
+        if (t.created_at && t.created_at.startsWith(dateStr)) {
+          const amt = Number(t.amount) || 0;
+          if (t.type?.toUpperCase() === 'INCOME') daysMap[dateStr].income += amt;
+          else daysMap[dateStr].expense += amt;
+        }
+      });
+
+      result.push({
+        date: displayLabel,
+        Pemasukan: daysMap[dateStr].income,
+        Pengeluaran: daysMap[dateStr].expense
+      });
+    }
+
+    return result;
+  };
+
+  const chartData = getDailyChartData();
+
+  // Smart Insight Generator
+  const getSmartInsight = () => {
+    if (totalExpenseThisMonth === 0 && totalIncomeThisMonth === 0) {
+      return "Belum ada catatan transaksi di bulan ini. Yuk mulai catat pengeluaran pertamamu! ✨";
+    }
+    const ratio = totalIncomeThisMonth > 0 ? (totalExpenseThisMonth / totalIncomeThisMonth) * 100 : 100;
+    if (ratio < 50) {
+      return "🟢 Cashflow sangat sehat! Pengeluaran masih di bawah 50% dari pemasukan. Pertahankan!";
+    } else if (ratio <= 85) {
+      return "🟡 Status Waspada! Pengeluaran sudah memakan sebagian besar pemasukan bulan ini.";
+    } else {
+      return "🔴 Status Bahaya! Pengeluaran mendominasi pemasukan. Saatnya rem jajanan yang tidak mendesak!";
+    }
+  };
+
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedWallet) return alert('Pilih dompet dulu ya, sayang!');
@@ -173,8 +309,6 @@ export default function Home() {
 
     setSubmitting(true);
     let hasJudol = false;
-
-    // Pastikan ISO Waktu memakai inputan atau default jam detik persis saat submit
     const finalIsoDate = new Date(transactionDate).toISOString();
 
     for (const item of validItems) {
@@ -206,17 +340,6 @@ export default function Home() {
           created_at: finalIsoDate
         }]);
 
-        const w1 = wallets.find(w => w.name === selectedWallet);
-        const w2 = wallets.find(w => w.name === secondaryWallet);
-        if (w1) {
-          const b1 = transactionType === 'INCOME' ? Number(w1.balance) + primaryAmount : Number(w1.balance) - primaryAmount;
-          await supabase.from('wallets').update({ balance: b1 }).eq('id', w1.id);
-        }
-        if (w2) {
-          const b2 = transactionType === 'INCOME' ? Number(w2.balance) + secondaryAmount : Number(w2.balance) - secondaryAmount;
-          await supabase.from('wallets').update({ balance: b2 }).eq('id', w2.id);
-        }
-
       } else {
         await supabase.from('transactions').insert([{
           description: item.description,
@@ -226,21 +349,11 @@ export default function Home() {
           wallet_name: selectedWallet,
           created_at: finalIsoDate
         }]);
-
-        const targetWallet = wallets.find(w => w.name === selectedWallet);
-        if (targetWallet) {
-          const newBalance = transactionType === 'INCOME'
-            ? Number(targetWallet.balance) + numericAmount
-            : Number(targetWallet.balance) - numericAmount;
-
-          await supabase.from('wallets').update({ balance: newBalance }).eq('id', targetWallet.id);
-        }
       }
     }
 
     if (!hasJudol) triggerConfetti();
 
-    // Reset Form & Update Waktu Real-Time Terbaru untuk Transaksi Berikutnya ✨
     setItems([{ description: '', amount: '' }]);
     setTransactionDate(getCurrentLocalDateTime());
     setSubmitting(false);
@@ -266,67 +379,6 @@ export default function Home() {
     }
     setSubmitting(false);
   };
-
-  // Streak Counter
-  const calculateStreakDays = () => {
-    const judolTransactions = transactions.filter(t =>
-      t.type?.toUpperCase() === 'EXPENSE' &&
-      (t.category === 'Special Recovery Tracker' || SENSITIVE_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw)))
-    );
-
-    if (judolTransactions.length === 0) return 30;
-
-    const lastJudolDate = new Date(judolTransactions[0].created_at);
-    const today = new Date();
-    const diffTime = Math.abs(today.getTime() - lastJudolDate.getTime());
-    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  };
-
-  const streakDays = calculateStreakDays();
-
-  // Financial Calculations
-  const totalBalance = wallets.reduce((acc, curr) => acc + (Number(curr.balance) || 0), 0);
-
-  const totalExpenseThisMonth = transactions
-    .filter(t => t.type?.toUpperCase() === 'EXPENSE')
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-
-  const totalJudolExpense = transactions
-    .filter(t => {
-      const isExpense = t.type?.toUpperCase() === 'EXPENSE';
-      const isJudolCategory = t.category === 'Special Recovery Tracker';
-      const hasKeyword = SENSITIVE_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw));
-      return isExpense && (isJudolCategory || hasKeyword);
-    })
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayExpense = transactions
-    .filter(t => {
-      const isExpense = t.type?.toUpperCase() === 'EXPENSE';
-      const isToday = t.created_at && t.created_at.startsWith(todayStr);
-      return isExpense && isToday;
-    })
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-
-  const baseDailyLimit = Math.round(monthlyLimit / 30);
-  const rewardBonus = Math.max(judolLimit - totalJudolExpense, 0);
-  const totalDailyLimit = baseDailyLimit + Math.round(rewardBonus / 30);
-  const remainingDailyLimit = totalDailyLimit - todayExpense;
-  const dailyUsagePercentage = Math.min(Math.round((todayExpense / totalDailyLimit) * 100), 100);
-
-  const budgetUsagePercentage = Math.min(Math.round((totalExpenseThisMonth / monthlyLimit) * 100), 100);
-  const judolUsagePercentage = Math.min(Math.round((totalJudolExpense / judolLimit) * 100), 100);
-
-  // Data Chart
-  const chartData = transactions
-    .filter(t => t.type?.toUpperCase() === 'EXPENSE')
-    .slice(0, 7)
-    .reverse()
-    .map(t => ({
-      name: t.description.length > 8 ? t.description.substring(0, 8) + '...' : t.description,
-      amount: Number(t.amount) || 0
-    }));
 
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-zinc-950 text-zinc-100' : 'bg-slate-100 text-slate-900';
@@ -364,7 +416,7 @@ export default function Home() {
             <div className={`md:hidden p-2.5 rounded-2xl border text-right ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
               <span className={`text-[9px] font-medium block uppercase ${subTextClass}`}>Total Ammo</span>
               <span className="text-sm font-black text-emerald-500">
-                Rp {(totalBalance / 1000).toFixed(0)}k
+                Rp {(totalCalculatedBalance / 1000).toFixed(0)}k
               </span>
             </div>
           </div>
@@ -385,9 +437,12 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center justify-between md:justify-end gap-3">
-            <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-orange-500/30 text-orange-400 font-bold text-xs">
-              <Flame className="w-4 h-4 fill-orange-500 animate-pulse" />
-              <span>{streakDays} Hari Clean!</span>
+            <div className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border font-bold text-xs ${isDailyOverbudget
+                ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
+                : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400'
+              }`}>
+              <Flame className={`w-4 h-4 ${isDailyOverbudget ? 'text-rose-500' : 'fill-orange-500 animate-pulse'}`} />
+              <span>{isDailyOverbudget ? 'Streak Pecah!' : `${streakDays} Hari Clean!`}</span>
             </div>
 
             <button
@@ -406,71 +461,140 @@ export default function Home() {
                 </button>
               </div>
               <span className="text-xl md:text-2xl font-black text-emerald-500 tracking-tight">
-                {loading ? 'Loading...' : `Rp ${totalBalance.toLocaleString('id-ID')}`}
+                {loading ? 'Loading...' : `Rp ${totalCalculatedBalance.toLocaleString('id-ID')}`}
               </span>
             </div>
           </div>
         </header>
 
-        {/* Daily Allowance Tracker Widget */}
-        <section className={`p-6 rounded-3xl border space-y-3 ${isDark
-            ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
-            : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
+        {/* WIDGET REKAPITULASI BULANAN & SMART INSIGHT (FITUR BARU 📊) */}
+        <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-sm font-bold flex items-center gap-2">
+              <PieChart className="w-4 h-4 text-emerald-500" /> Rekapitulasi Financial Bulanan
+            </h2>
+
+            {/* Filter Pilih Bulan Style Plaza */}
+            <div className="flex items-center gap-2 bg-zinc-950/40 p-1.5 rounded-2xl border border-zinc-800">
+              <Filter className="w-3.5 h-3.5 text-emerald-500 ml-1" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className={`bg-transparent text-xs font-bold focus:outline-none ${isDark ? 'text-zinc-200' : 'text-slate-800'}`}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 text-emerald-500`}>
+                <ArrowDownCircle className="w-3.5 h-3.5" /> Total Pemasukan
+              </span>
+              <p className="text-lg font-black mt-1 text-emerald-500">
+                Rp {totalIncomeThisMonth.toLocaleString('id-ID')}
+              </p>
+            </div>
+
+            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 text-rose-400`}>
+                <ArrowUpCircle className="w-3.5 h-3.5" /> Total Pengeluaran
+              </span>
+              <p className="text-lg font-black mt-1 text-rose-400">
+                Rp {totalExpenseThisMonth.toLocaleString('id-ID')}
+              </p>
+            </div>
+
+            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+              <span className={`text-[10px] uppercase font-bold flex items-center gap-1 ${subTextClass}`}>
+                ⚖️ Nett Cashflow
+              </span>
+              <p className={`text-lg font-black mt-1 ${netSavingsThisMonth >= 0 ? 'text-emerald-400' : 'text-rose-500'}`}>
+                {netSavingsThisMonth >= 0 ? '+' : ''} Rp {netSavingsThisMonth.toLocaleString('id-ID')}
+              </p>
+            </div>
+          </div>
+
+          {/* Smart Insight Auto Box */}
+          <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed font-medium ${isDark ? 'bg-emerald-950/10 border-emerald-500/20 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}>
+            💡 <strong>Smart Evaluator Insight:</strong> {getSmartInsight()}
+          </div>
+        </section>
+
+        {/* Daily Allowance Tracker Widget with Overbudget Punishment Alert */}
+        <section className={`p-6 rounded-3xl border space-y-3 transition-all ${isDailyOverbudget
+            ? 'bg-rose-950/20 border-rose-500/40'
+            : isDark
+              ? 'bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 border-emerald-500/30'
+              : 'bg-gradient-to-r from-emerald-50 via-white to-white border-emerald-200 shadow-sm'
           }`}>
           <div className="flex justify-between items-center">
-            <div className={`flex items-center gap-2 text-sm font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
+            <div className={`flex items-center gap-2 text-sm font-bold ${isDailyOverbudget ? 'text-rose-400' : isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
               <CalendarCheck className="w-4 h-4 text-emerald-500" /> Daily Limit Tracker (Hari Ini)
             </div>
-            <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-              Sisa Limit: Rp {remainingDailyLimit.toLocaleString('id-ID')}
+            <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${isDailyOverbudget
+                ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                : 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+              }`}>
+              {isDailyOverbudget ? `Overbudget: -Rp ${overbudgetAmount.toLocaleString('id-ID')}` : `Sisa Limit: Rp ${remainingDailyLimit.toLocaleString('id-ID')}`}
             </span>
           </div>
 
           <div className="space-y-1.5">
             <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
               <span>Terpakai Hari Ini: Rp {todayExpense.toLocaleString('id-ID')}</span>
-              <span>Jatah Harian (+Reward): Rp {totalDailyLimit.toLocaleString('id-ID')}</span>
+              <span>Target Limit Harian: Rp {baseDailyLimit.toLocaleString('id-ID')}</span>
             </div>
             <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
               <div
-                className={`h-full rounded-full transition-all duration-500 ${dailyUsagePercentage > 85 ? 'bg-rose-500' : dailyUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-500'
+                className={`h-full rounded-full transition-all duration-500 ${isDailyOverbudget ? 'bg-rose-500' : dailyUsagePercentage > 85 ? 'bg-rose-500' : dailyUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-500'
                   }`}
                 style={{ width: `${dailyUsagePercentage}%` }}
               ></div>
             </div>
           </div>
+
+          {/* Overbudget Overspill Punishment Notice */}
+          {isDailyOverbudget && (
+            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2 font-semibold">
+              <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+              <span>PUNISHMENT: Overbudget Rp {overbudgetAmount.toLocaleString('id-ID')} dialihkan memotong Recovery Budget & Streak Clean kamu pecah!</span>
+            </div>
+          )}
         </section>
 
-        {/* GRAFIK CHART ANALYTICS 📊 */}
+        {/* GRAFIK DUAL LINE CHART HARIAN (FITUR BARU 📈) */}
         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
           <div className="flex justify-between items-center">
             <h2 className="text-sm font-bold flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-emerald-500" /> Tren Pengeluaran Terakhir
+              <BarChart3 className="w-4 h-4 text-emerald-500" /> Tren Pemasukan vs Pengeluaran Harian
             </h2>
-            <span className={`text-xs ${subTextClass}`}>7 Transaksi Terakhir</span>
+            <div className="flex items-center gap-3 text-xs font-semibold">
+              <span className="flex items-center gap-1 text-emerald-500"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Masuk</span>
+              <span className="flex items-center gap-1 text-rose-500"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> Keluar</span>
+            </div>
           </div>
 
-          {chartData.length === 0 ? (
-            <p className={`text-xs py-8 text-center ${subTextClass}`}>Belum ada grafik pengeluaran.</p>
-          ) : (
-            <div className="h-48 w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <XAxis dataKey="name" stroke={isDark ? '#71717a' : '#64748b'} fontSize={11} tickLine={false} />
-                  <YAxis stroke={isDark ? '#71717a' : '#64748b'} fontSize={10} tickLine={false} width={40} />
-                  <RechartsTooltip
-                    contentStyle={{
-                      backgroundColor: isDark ? '#18181b' : '#ffffff',
-                      borderColor: isDark ? '#27272a' : '#e2e8f0',
-                      borderRadius: '12px',
-                      color: isDark ? '#f4f4f5' : '#0f172a'
-                    }}
-                  />
-                  <Bar dataKey="amount" fill="#10b981" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          <div className="h-52 w-full pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#27272a' : '#e2e8f0'} />
+                <XAxis dataKey="date" stroke={isDark ? '#71717a' : '#64748b'} fontSize={11} tickLine={false} />
+                <YAxis stroke={isDark ? '#71717a' : '#64748b'} fontSize={10} tickLine={false} width={40} />
+                <RechartsTooltip
+                  contentStyle={{
+                    backgroundColor: isDark ? '#18181b' : '#ffffff',
+                    borderColor: isDark ? '#27272a' : '#e2e8f0',
+                    borderRadius: '12px',
+                    color: isDark ? '#f4f4f5' : '#0f172a'
+                  }}
+                />
+                <Line type="monotone" dataKey="Pemasukan" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="Pengeluaran" stroke="#f43f5e" strokeWidth={3} dot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </section>
 
         {/* Budget Trackers Grid */}
@@ -515,7 +639,7 @@ export default function Home() {
 
             <div className="space-y-1.5">
               <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
-                <span>Terpakai: Rp {totalJudolExpense.toLocaleString('id-ID')}</span>
+                <span>Terpakai (+Penalty): Rp {effectiveJudolExpense.toLocaleString('id-ID')}</span>
                 <span>Max: Rp {judolLimit.toLocaleString('id-ID')}</span>
               </div>
               <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
@@ -547,7 +671,6 @@ export default function Home() {
             </div>
 
             <form className="space-y-4" onSubmit={handleAddTransaction}>
-              {/* Controls: Date (Auto-Fill Current Time ⏱️), Type, Wallet */}
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -556,7 +679,6 @@ export default function Home() {
                       type="button"
                       onClick={() => setTransactionDate(getCurrentLocalDateTime())}
                       className="text-[10px] text-emerald-500 hover:underline flex items-center gap-0.5"
-                      title="Setel ke jam sekarang"
                     >
                       <Clock className="w-2.5 h-2.5" /> Now
                     </button>
@@ -593,7 +715,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Split Bill Config Panel */}
               {isSplitBill && (
                 <div className={`p-3.5 rounded-2xl border space-y-2 animate-in fade-in duration-200 ${isDark ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-indigo-50 border-indigo-200'
                   }`}>
@@ -630,7 +751,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Multi Item Rows */}
               <div className="space-y-2">
                 <label className={`text-xs block font-bold ${subTextClass}`}>Baris Barang Belanjaan</label>
                 {items.map((item, index) => (
@@ -683,7 +803,7 @@ export default function Home() {
             </form>
           </section>
 
-          {/* Wallets Grid */}
+          {/* Wallets Grid Presisi Dynamic Calculation */}
           <section className="lg:col-span-2 space-y-3">
             <div className="flex items-center justify-between px-1">
               <h2 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${subTextClass}`}>
@@ -701,23 +821,27 @@ export default function Home() {
               {loading ? (
                 <p className={`text-xs ${subTextClass}`}>Memuat dompet...</p>
               ) : (
-                wallets.map((w) => (
-                  <div
-                    key={w.id}
-                    className={`p-4 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
-                        }`}>
-                        {w.name}
-                      </span>
-                      <Wallet className={`w-4 h-4 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
+                wallets.map((w) => {
+                  const calculatedBalance = getWalletCalculatedBalance(w.name);
+
+                  return (
+                    <div
+                      key={w.id}
+                      className={`p-4 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
+                          }`}>
+                          {w.name}
+                        </span>
+                        <Wallet className={`w-4 h-4 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
+                      </div>
+                      <div className="text-lg font-bold">
+                        Rp {calculatedBalance.toLocaleString('id-ID')}
+                      </div>
                     </div>
-                    <div className="text-lg font-bold">
-                      Rp {(Number(w.balance) || 0).toLocaleString('id-ID')}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </section>
