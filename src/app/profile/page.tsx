@@ -19,7 +19,9 @@ import {
     Loader2,
     TrendingUp,
     Eye,
-    EyeOff
+    EyeOff,
+    Flame,
+    Sparkles
 } from 'lucide-react';
 import Toast from '@/components/Toast';
 
@@ -27,6 +29,15 @@ interface WalletItem {
     id: number;
     name: string;
     balance: number;
+}
+
+interface Transaction {
+    id: number;
+    created_at: string;
+    description: string;
+    amount: number;
+    type: string;
+    category: string;
 }
 
 const SENSITIVE_KEYWORDS = [
@@ -79,6 +90,7 @@ export default function ProfilePage() {
 
     const [monthlyLimit, setMonthlyLimit] = useState('');
     const [judolLimit, setJudolLimit] = useState('');
+    const [streakDays, setStreakDays] = useState(30);
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -135,6 +147,28 @@ export default function ProfilePage() {
         } else {
             setMonthlyLimit('Rp 1.500.000');
             setJudolLimit('Rp 300.000');
+        }
+
+        const { data: transData } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        if (transData) {
+            const judolTransactions = transData.filter((t: Transaction) =>
+                t.type?.toUpperCase() === 'EXPENSE' &&
+                (t.category === 'Special Recovery Tracker' || SENSITIVE_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw)))
+            );
+
+            if (judolTransactions.length === 0) {
+                setStreakDays(30);
+            } else {
+                const lastJudolDate = new Date(judolTransactions[0].created_at);
+                const today = new Date();
+                const diffTime = Math.abs(today.getTime() - lastJudolDate.getTime());
+                setStreakDays(Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+            }
         }
 
         setLoading(false);
@@ -359,29 +393,37 @@ export default function ProfilePage() {
                     </div>
                 ) : (
                     <>
-                        {/* PROFILE CARD */}
+                        {/* PROFILE & STREAK CARD */}
                         <section className={`p-6 rounded-3xl border space-y-5 ${cardClass}`}>
-                            <div className="flex items-center gap-4">
-                                <img
-                                    src={`https://api.dicebear.com/7.x/lorelei/svg?seed=${avatarSeed}&backgroundColor=b6e3f4`}
-                                    alt="Avatar Preview"
-                                    className="w-16 h-16 rounded-2xl border-2 border-emerald-500/50 object-cover bg-emerald-500/10 shadow-md shrink-0"
-                                />
-                                <div className="space-y-0.5 overflow-hidden">
-                                    <h2 className="text-lg font-black tracking-tight truncate">{displayName || 'Pengguna'}</h2>
-                                    <div className="flex items-center gap-2">
-                                        <p className={`text-xs ${subTextClass} font-medium`}>
-                                            {showFullEmail ? currentUser?.email : maskEmail(currentUser?.email || '')}
-                                        </p>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowFullEmail(!showFullEmail)}
-                                            className={`p-1 rounded-lg transition-colors hover:text-emerald-500 ${subTextClass}`}
-                                            title={showFullEmail ? "Sembunyikan Email" : "Tampilkan Email"}
-                                        >
-                                            {showFullEmail ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                        </button>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <img
+                                        src={`https://api.dicebear.com/7.x/lorelei/svg?seed=${avatarSeed}&backgroundColor=b6e3f4`}
+                                        alt="Avatar Preview"
+                                        className="w-16 h-16 rounded-2xl border-2 border-emerald-500/50 object-cover bg-emerald-500/10 shadow-md shrink-0"
+                                    />
+                                    <div className="space-y-0.5 overflow-hidden">
+                                        <h2 className="text-lg font-black tracking-tight truncate">{displayName || 'Pengguna'}</h2>
+                                        <div className="flex items-center gap-2">
+                                            <p className={`text-xs ${subTextClass} font-medium`}>
+                                                {showFullEmail ? currentUser?.email : maskEmail(currentUser?.email || '')}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowFullEmail(!showFullEmail)}
+                                                className={`p-1 rounded-lg transition-colors hover:text-emerald-500 ${subTextClass}`}
+                                                title={showFullEmail ? "Sembunyikan Email" : "Tampilkan Email"}
+                                            >
+                                                {showFullEmail ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                            </button>
+                                        </div>
                                     </div>
+                                </div>
+
+                                <div className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl border font-bold text-xs ${'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400'
+                                    }`}>
+                                    <Flame className="w-4 h-4 fill-orange-500 animate-pulse" />
+                                    <span>{streakDays} Hari Clean Streak!</span>
                                 </div>
                             </div>
 
@@ -514,28 +556,26 @@ export default function ProfilePage() {
 
             </div>
 
-            {/* BOTTOM NAVIGATION (MOBILE) - PRESISI 3 KOLOM SIMETRIS */}
-            <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-4 py-2 border-t backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-800 text-zinc-400' : 'bg-white/95 border-slate-200 text-slate-600'
+            {/* BOTTOM NAVIGATION (MOBILE - INSTAGRAM STYLE 5 GRID) */}
+            <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-2 py-2 border-t backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-800 text-zinc-400' : 'bg-white/95 border-slate-200 text-slate-600'
                 }`}>
-                <div className="grid grid-cols-3 items-center w-full max-w-sm mx-auto">
+                <div className="grid grid-cols-5 items-center w-full max-w-sm mx-auto">
 
-                    <div className="flex items-center justify-around">
-                        <Link
-                            href="/"
-                            className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
-                        >
-                            <HomeIcon className="w-5 h-5" />
-                            <span>Dashboard</span>
-                        </Link>
+                    <Link
+                        href="/"
+                        className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
+                    >
+                        <HomeIcon className="w-5 h-5" />
+                        <span>Dashboard</span>
+                    </Link>
 
-                        <Link
-                            href="/history"
-                            className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
-                        >
-                            <HistoryIcon className="w-5 h-5" />
-                            <span>Laporan</span>
-                        </Link>
-                    </div>
+                    <Link
+                        href="/history"
+                        className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
+                    >
+                        <HistoryIcon className="w-5 h-5" />
+                        <span>Laporan</span>
+                    </Link>
 
                     <div className="flex justify-center items-center relative -top-5">
                         <button
@@ -546,15 +586,18 @@ export default function ProfilePage() {
                         </button>
                     </div>
 
-                    <div className="flex items-center justify-center">
-                        <Link
-                            href="/profile"
-                            className="flex flex-col items-center justify-center gap-1 text-emerald-500 font-bold text-[10px]"
-                        >
-                            <User className="w-5 h-5" />
-                            <span>Profil</span>
-                        </Link>
+                    <div className="flex flex-col items-center justify-center gap-1 font-semibold text-[10px] opacity-40">
+                        <Sparkles className="w-5 h-5" />
+                        <span>Secret</span>
                     </div>
+
+                    <Link
+                        href="/profile"
+                        className="flex flex-col items-center justify-center gap-1 text-emerald-500 font-bold text-[10px]"
+                    >
+                        <User className="w-5 h-5" />
+                        <span>Profil</span>
+                    </Link>
 
                 </div>
             </nav>

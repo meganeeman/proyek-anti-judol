@@ -24,7 +24,6 @@ import {
   Target,
   AlertTriangle,
   CalendarCheck,
-  Flame,
   HelpCircle,
   BarChart3,
   History as HistoryIcon,
@@ -36,7 +35,8 @@ import {
   PieChart,
   ArrowUpCircle,
   ArrowDownCircle,
-  User
+  User,
+  Sparkles
 } from 'lucide-react';
 import Toast from '@/components/Toast';
 
@@ -356,23 +356,11 @@ export default function Home() {
   const budgetUsagePercentage = Math.min(Math.round((totalExpenseThisMonth / monthlyLimit) * 100), 100);
   const judolUsagePercentage = Math.min(Math.round((effectiveJudolExpense / judolLimit) * 100), 100);
 
-  const calculateStreakDays = () => {
-    if (isDailyOverbudget) return 0;
-
-    const judolTransactions = transactions.filter(t =>
-      t.type?.toUpperCase() === 'EXPENSE' &&
-      (t.category === 'Special Recovery Tracker' || SENSITIVE_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw)))
-    );
-
-    if (judolTransactions.length === 0) return 30;
-
-    const lastJudolDate = new Date(judolTransactions[0].created_at);
-    const today = new Date();
-    const diffTime = Math.abs(today.getTime() - lastJudolDate.getTime());
-    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const getProgressBarColor = (percentage: number) => {
+    if (percentage > 90) return 'bg-rose-500';
+    if (percentage >= 70) return 'bg-amber-400';
+    return 'bg-emerald-500';
   };
-
-  const streakDays = calculateStreakDays();
 
   const getDailyChartData = () => {
     const daysMap: { [key: string]: { income: number; expense: number } } = {};
@@ -559,12 +547,21 @@ export default function Home() {
               </h1>
             </div>
 
-            <div className={`md:hidden p-2.5 rounded-2xl border text-right ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
-              <span className={`text-[9px] font-medium block uppercase ${subTextClass}`}>Total Ammo</span>
-              <span className="text-sm font-black text-emerald-500">
-                Rp {(totalCalculatedBalance / 1000).toFixed(0)}k
+            <Link
+              href="/profile"
+              title={userMetadata.displayName}
+              className={`flex items-center gap-2 p-1.5 pr-3 rounded-2xl border transition-all hover:border-emerald-500/50 ${isDark ? 'bg-zinc-800/60 border-zinc-700/60' : 'bg-white border-slate-200 shadow-sm'
+                }`}
+            >
+              <img
+                src={userMetadata.avatarUrl}
+                alt="Avatar Mini"
+                className="w-8 h-8 rounded-xl object-cover border border-emerald-500/40 bg-emerald-500/10 shrink-0"
+              />
+              <span className="text-xs font-extrabold max-w-[120px] truncate">
+                {userMetadata.displayName}
               </span>
-            </div>
+            </Link>
           </div>
 
           <nav className="hidden lg:flex items-center p-1.5 rounded-2xl border bg-zinc-950/40 border-zinc-800/80 gap-1">
@@ -588,39 +585,16 @@ export default function Home() {
             </Link>
           </nav>
 
-          <div className="flex items-center justify-between md:justify-end gap-3">
-            <div className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border font-bold text-xs ${isDailyOverbudget
-              ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-              : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400'
+          <div className="flex items-center justify-between md:justify-end gap-3 w-full md:w-auto">
+            <div className={`p-3.5 md:p-4 rounded-2xl border w-full md:w-auto ${isDark ? 'bg-gradient-to-r from-emerald-950/40 to-zinc-900 border-emerald-500/30' : 'bg-emerald-50/80 border-emerald-200 shadow-sm'
               }`}>
-              <Flame className={`w-4 h-4 ${isDailyOverbudget ? 'text-rose-500' : 'fill-orange-500 animate-pulse'}`} />
-              <span>{isDailyOverbudget ? 'Streak Pecah!' : `${streakDays} Hari Clean!`}</span>
-            </div>
-
-            <Link
-              href="/profile"
-              title={userMetadata.displayName}
-              className={`flex items-center gap-2 p-1.5 pr-2.5 rounded-2xl border transition-all hover:border-emerald-500/50 ${isDark ? 'bg-zinc-800/60 border-zinc-700/60' : 'bg-white border-slate-200 shadow-sm'
-                }`}
-            >
-              <img
-                src={userMetadata.avatarUrl}
-                alt="Avatar Mini"
-                className="w-7 h-7 rounded-xl object-cover border border-emerald-500/40 bg-emerald-500/10 shrink-0"
-              />
-              <span className="text-xs font-extrabold max-w-[100px] truncate">
-                {userMetadata.displayName}
-              </span>
-            </Link>
-
-            <div className={`hidden md:block p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-800/50 border-zinc-700/50' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center gap-1">
-                <span className={`text-[10px] font-medium block uppercase tracking-wider ${subTextClass}`}>Total Ammo</span>
+                <span className={`text-[10px] font-bold block uppercase tracking-wider text-emerald-500`}>Total Ammo</span>
                 <button onClick={() => setActiveTooltip('totalAmmo')} className="text-zinc-500 hover:text-emerald-400 p-0.5">
                   <HelpCircle className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <span className="text-xl md:text-2xl font-black text-emerald-500 tracking-tight">
+              <span className="text-2xl md:text-3xl font-black text-emerald-500 tracking-tight">
                 {loading ? 'Loading...' : `Rp ${totalCalculatedBalance.toLocaleString('id-ID')}`}
               </span>
             </div>
@@ -641,34 +615,37 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory -mx-4 px-4">
-            {loading ? (
-              <p className={`text-xs ${subTextClass}`}>Memuat dompet...</p>
-            ) : wallets.length === 0 ? (
-              <p className={`text-xs ${subTextClass}`}>Belum ada dompet. Tambah dompet baru yuk!</p>
-            ) : (
-              wallets.map((w) => {
-                const calculatedBalance = getWalletCalculatedBalance(w.name);
+          <div className="relative">
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory -mx-4 px-4">
+              {loading ? (
+                <p className={`text-xs ${subTextClass}`}>Memuat dompet...</p>
+              ) : wallets.length === 0 ? (
+                <p className={`text-xs ${subTextClass}`}>Belum ada dompet. Tambah dompet baru yuk!</p>
+              ) : (
+                wallets.map((w) => {
+                  const calculatedBalance = getWalletCalculatedBalance(w.name);
 
-                return (
-                  <div
-                    key={w.id}
-                    className={`min-w-[140px] max-w-[160px] shrink-0 snap-align-start p-3.5 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border truncate max-w-[90px] ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
-                        }`}>
-                        {w.name}
-                      </span>
-                      <Wallet className={`w-4 h-4 shrink-0 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
+                  return (
+                    <div
+                      key={w.id}
+                      className={`min-w-[140px] max-w-[160px] shrink-0 snap-align-start p-3.5 rounded-2xl border transition-all duration-300 group ${cardClass} hover:border-emerald-500/40`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border truncate max-w-[90px] ${isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700/50' : 'bg-slate-100 text-slate-700 border-slate-300'
+                          }`}>
+                          {w.name}
+                        </span>
+                        <Wallet className={`w-4 h-4 shrink-0 transition-colors ${subTextClass} group-hover:text-emerald-500`} />
+                      </div>
+                      <div className="text-sm font-bold truncate">
+                        Rp {calculatedBalance.toLocaleString('id-ID')}
+                      </div>
                     </div>
-                    <div className="text-sm font-bold truncate">
-                      Rp {calculatedBalance.toLocaleString('id-ID')}
-                    </div>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+            </div>
+            <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-zinc-950 to-transparent"></div>
           </div>
         </section>
 
@@ -699,8 +676,7 @@ export default function Home() {
             </div>
             <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
               <div
-                className={`h-full rounded-full transition-all duration-500 ${isDailyOverbudget ? 'bg-rose-500' : dailyUsagePercentage > 85 ? 'bg-rose-500' : dailyUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-500'
-                  }`}
+                className={`h-full rounded-full transition-all duration-500 ${isDailyOverbudget ? 'bg-rose-500' : getProgressBarColor(dailyUsagePercentage)}`}
                 style={{ width: `${dailyUsagePercentage}%` }}
               ></div>
             </div>
@@ -712,6 +688,71 @@ export default function Home() {
               <span>PUNISHMENT: Overbudget Rp {overbudgetAmount.toLocaleString('id-ID')} dialihkan memotong Recovery Budget & Streak Clean kamu pecah!</span>
             </div>
           )}
+        </section>
+
+        {/* BUDGET CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <section className={`p-6 rounded-3xl border space-y-3 ${cardClass}`}>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2 text-sm font-bold">
+                <Target className="w-4 h-4 text-emerald-500" /> Monthly Budget Limit
+              </div>
+              <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                {budgetUsagePercentage}% Terpakai
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
+                <span>Pengeluaran: Rp {totalExpenseThisMonth.toLocaleString('id-ID')}</span>
+                <span>Limit: Rp {monthlyLimit.toLocaleString('id-ID')}</span>
+              </div>
+              <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${getProgressBarColor(budgetUsagePercentage)}`}
+                  style={{ width: `${budgetUsagePercentage}%` }}
+                ></div>
+              </div>
+            </div>
+          </section>
+
+          <section className={`p-6 rounded-3xl border space-y-3 ${isDark ? 'bg-zinc-900/60 border-rose-500/40' : 'bg-white border-rose-300 shadow-sm'}`}>
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2 text-sm font-bold text-rose-400">
+                <AlertTriangle className="w-4 h-4 text-rose-500" /> Recovery Budget
+                <button onClick={() => setActiveTooltip('recoveryBudget')} className="p-0.5">
+                  <HelpCircle className="w-3.5 h-3.5 text-rose-400/70" />
+                </button>
+              </div>
+              <span className="text-xs font-bold text-rose-400 bg-rose-500/15 px-3 py-1 rounded-full border border-rose-500/30">
+                {judolUsagePercentage}% Terpakai
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
+                <span>Terpakai (+Penalty): Rp {effectiveJudolExpense.toLocaleString('id-ID')}</span>
+                <span>Max: Rp {judolLimit.toLocaleString('id-ID')}</span>
+              </div>
+              <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${getProgressBarColor(judolUsagePercentage)}`}
+                  style={{ width: `${judolUsagePercentage}%` }}
+                ></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* SMART PRO EVALUATOR */}
+        <section className={`p-4 rounded-3xl border text-xs leading-relaxed font-semibold transition-colors flex items-center gap-3 ${isProRataOverbudget
+          ? 'bg-rose-950/20 border-rose-500/40 text-rose-400'
+          : isDark
+            ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}>
+          <Sparkles className="w-5 h-5 text-emerald-500 shrink-0" />
+          <span>Smart Pro-Rata Evaluator: {getProRataSmartInsight()}</span>
         </section>
 
         {/* CHART */}
@@ -753,62 +794,6 @@ export default function Home() {
             </ResponsiveContainer>
           </div>
         </section>
-
-        {/* BUDGET CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <section className={`p-6 rounded-3xl border space-y-3 ${cardClass}`}>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-sm font-bold">
-                <Target className="w-4 h-4 text-emerald-500" /> Monthly Budget Limit
-              </div>
-              <span className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                {budgetUsagePercentage}% Terpakai
-              </span>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
-                <span>Pengeluaran: Rp {totalExpenseThisMonth.toLocaleString('id-ID')}</span>
-                <span>Limit: Rp {monthlyLimit.toLocaleString('id-ID')}</span>
-              </div>
-              <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${budgetUsagePercentage > 85 ? 'bg-rose-500' : budgetUsagePercentage > 60 ? 'bg-amber-400' : 'bg-emerald-500'
-                    }`}
-                  style={{ width: `${budgetUsagePercentage}%` }}
-                ></div>
-              </div>
-            </div>
-          </section>
-
-          <section className={`p-6 rounded-3xl border space-y-3 ${isDark ? 'bg-zinc-900/60 border-rose-500/40' : 'bg-white border-rose-300 shadow-sm'}`}>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-sm font-bold text-rose-400">
-                <AlertTriangle className="w-4 h-4 text-rose-500" /> Recovery Budget
-                <button onClick={() => setActiveTooltip('recoveryBudget')} className="p-0.5">
-                  <HelpCircle className="w-3.5 h-3.5 text-rose-400/70" />
-                </button>
-              </div>
-              <span className="text-xs font-bold text-rose-400 bg-rose-500/15 px-3 py-1 rounded-full border border-rose-500/30">
-                {judolUsagePercentage}% Terpakai
-              </span>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
-                <span>Terpakai (+Penalty): Rp {effectiveJudolExpense.toLocaleString('id-ID')}</span>
-                <span>Max: Rp {judolLimit.toLocaleString('id-ID')}</span>
-              </div>
-              <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${judolUsagePercentage > 80 ? 'bg-rose-500' : judolUsagePercentage > 40 ? 'bg-amber-500' : 'bg-emerald-500'
-                    }`}
-                  style={{ width: `${judolUsagePercentage}%` }}
-                ></div>
-              </div>
-            </div>
-          </section>
-        </div>
 
         {/* REKAPITULASI */}
         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
@@ -862,15 +847,6 @@ export default function Home() {
                 {netSavingsThisMonth >= 0 ? '+' : ''} Rp {netSavingsThisMonth.toLocaleString('id-ID')}
               </p>
             </div>
-          </div>
-
-          <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed font-medium transition-colors ${isProRataOverbudget
-            ? 'bg-rose-950/20 border-rose-500/40 text-rose-400'
-            : isDark
-              ? 'bg-emerald-950/10 border-emerald-500/20 text-emerald-300'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-            }`}>
-            Smart Pro-Rata Evaluator: {getProRataSmartInsight()}
           </div>
         </section>
 
@@ -1025,28 +1001,26 @@ export default function Home() {
 
       </div>
 
-      {/* BOTTOM NAVIGATION (MOBILE) - PRESISI 3 KOLOM SIMETRIS */}
-      <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-4 py-2 border-t backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-800 text-zinc-400' : 'bg-white/95 border-slate-200 text-slate-600'
+      {/* BOTTOM NAVIGATION (MOBILE - INSTAGRAM STYLE 5 GRID) */}
+      <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-2 py-2 border-t backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-800 text-zinc-400' : 'bg-white/95 border-slate-200 text-slate-600'
         }`}>
-        <div className="grid grid-cols-3 items-center w-full max-w-sm mx-auto">
+        <div className="grid grid-cols-5 items-center w-full max-w-sm mx-auto">
 
-          <div className="flex items-center justify-around">
-            <Link
-              href="/"
-              className="flex flex-col items-center justify-center gap-1 text-emerald-500 font-bold text-[10px]"
-            >
-              <HomeIcon className="w-5 h-5" />
-              <span>Dashboard</span>
-            </Link>
+          <Link
+            href="/"
+            className="flex flex-col items-center justify-center gap-1 text-emerald-500 font-bold text-[10px]"
+          >
+            <HomeIcon className="w-5 h-5" />
+            <span>Dashboard</span>
+          </Link>
 
-            <Link
-              href="/history"
-              className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
-            >
-              <HistoryIcon className="w-5 h-5" />
-              <span>Laporan</span>
-            </Link>
-          </div>
+          <Link
+            href="/history"
+            className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
+          >
+            <HistoryIcon className="w-5 h-5" />
+            <span>Laporan</span>
+          </Link>
 
           <div className="flex justify-center items-center relative -top-5">
             <button
@@ -1057,15 +1031,18 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="flex items-center justify-center">
-            <Link
-              href="/profile"
-              className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
-            >
-              <User className="w-5 h-5" />
-              <span>Profil</span>
-            </Link>
+          <div className="flex flex-col items-center justify-center gap-1 font-semibold text-[10px] opacity-40">
+            <Sparkles className="w-5 h-5" />
+            <span>Secret</span>
           </div>
+
+          <Link
+            href="/profile"
+            className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
+          >
+            <User className="w-5 h-5" />
+            <span>Profil</span>
+          </Link>
 
         </div>
       </nav>

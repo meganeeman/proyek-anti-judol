@@ -19,7 +19,8 @@ import {
     Clock,
     X,
     Loader2,
-    User
+    User,
+    Sparkles
 } from 'lucide-react';
 import Toast from '@/components/Toast';
 
@@ -42,6 +43,12 @@ interface Transaction {
 const SENSITIVE_KEYWORDS = [
     'slot', 'depo', 'judol', 'zeus', 'olympus', 'gacor',
     'maxwin', 'pragmatic', 'habanero', 'sbobet', 'judi', 'judionline', 'poker'
+];
+
+const RECOVERY_ADVICES = [
+    'Transaksi dicatat ke Recovery Budget. Ingat, fokus pada tujuan finansial jangka panjang dan hindari impulsivitas demi masa depan yang lebih stabil!',
+    'Tetap tenang dan kendalikan keuanganmu. Setiap rupiah yang kamu hemat adalah langkah menuju kebebasan finansial!',
+    'Ingat komitmen awalmu! Uangmu jauh lebih berharga jika dialokasikan untuk hal-hal yang benar-benar produktif.'
 ];
 
 const getCurrentLocalDateTime = () => {
@@ -153,7 +160,12 @@ export default function HistoryPage() {
         if (error) {
             showToast('Gagal mencatat transaksi: ' + error.message, 'error');
         } else {
-            showToast('Transaksi berhasil dicatat!', 'success');
+            if (isJudol) {
+                const randomAdvice = RECOVERY_ADVICES[Math.floor(Math.random() * RECOVERY_ADVICES.length)];
+                showToast(randomAdvice, 'error');
+            } else {
+                showToast('Transaksi berhasil dicatat!', 'success');
+            }
             setMobileDesc('');
             setMobileAmount('');
             setMobileDate(getCurrentLocalDateTime());
@@ -430,28 +442,26 @@ export default function HistoryPage() {
 
             </div>
 
-            {/* BOTTOM NAVIGATION (MOBILE) - PRESISI 3 KOLOM SIMETRIS */}
-            <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-4 py-2 border-t backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-800 text-zinc-400' : 'bg-white/95 border-slate-200 text-slate-600'
+            {/* BOTTOM NAVIGATION (MOBILE - INSTAGRAM STYLE 5 GRID) */}
+            <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-2 py-2 border-t backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-800 text-zinc-400' : 'bg-white/95 border-slate-200 text-slate-600'
                 }`}>
-                <div className="grid grid-cols-3 items-center w-full max-w-sm mx-auto">
+                <div className="grid grid-cols-5 items-center w-full max-w-sm mx-auto">
 
-                    <div className="flex items-center justify-around">
-                        <Link
-                            href="/"
-                            className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
-                        >
-                            <HomeIcon className="w-5 h-5" />
-                            <span>Dashboard</span>
-                        </Link>
+                    <Link
+                        href="/"
+                        className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
+                    >
+                        <HomeIcon className="w-5 h-5" />
+                        <span>Dashboard</span>
+                    </Link>
 
-                        <Link
-                            href="/history"
-                            className="flex flex-col items-center justify-center gap-1 text-emerald-500 font-bold text-[10px]"
-                        >
-                            <HistoryIcon className="w-5 h-5" />
-                            <span>Laporan</span>
-                        </Link>
-                    </div>
+                    <Link
+                        href="/history"
+                        className="flex flex-col items-center justify-center gap-1 text-emerald-500 font-bold text-[10px]"
+                    >
+                        <HistoryIcon className="w-5 h-5" />
+                        <span>Laporan</span>
+                    </Link>
 
                     <div className="flex justify-center items-center relative -top-5">
                         <button
@@ -462,15 +472,18 @@ export default function HistoryPage() {
                         </button>
                     </div>
 
-                    <div className="flex items-center justify-center">
-                        <Link
-                            href="/profile"
-                            className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
-                        >
-                            <User className="w-5 h-5" />
-                            <span>Profil</span>
-                        </Link>
+                    <div className="flex flex-col items-center justify-center gap-1 font-semibold text-[10px] opacity-40">
+                        <Sparkles className="w-5 h-5" />
+                        <span>Secret</span>
                     </div>
+
+                    <Link
+                        href="/profile"
+                        className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
+                    >
+                        <User className="w-5 h-5" />
+                        <span>Profil</span>
+                    </Link>
 
                 </div>
             </nav>
