@@ -14,7 +14,9 @@ import {
     Loader2,
     TrendingUp,
     Sparkles,
-    Trash2
+    Trash2,
+    ChevronDown,
+    Calendar
 } from 'lucide-react';
 import Toast from '@/components/Toast';
 
@@ -69,6 +71,7 @@ export default function GlobalFabNavigation() {
     const [selectedWallet, setSelectedWallet] = useState('');
     const [transactionType, setTransactionType] = useState('EXPENSE');
     const [transactionDate, setTransactionDate] = useState(getCurrentLocalDateTime());
+    const [showTimePicker, setShowTimePicker] = useState(false);
     const [items, setItems] = useState<ItemRow[]>([{ description: '', amount: '' }]);
 
     const [dragStartY, setDragStartY] = useState<number | null>(null);
@@ -99,6 +102,7 @@ export default function GlobalFabNavigation() {
     const handleOpenModal = () => {
         setIsOpen(true);
         setDragOffsetY(0);
+        setShowTimePicker(false);
         setTimeout(() => {
             setIsAnimating(true);
             amountInputRef.current?.focus();
@@ -110,6 +114,7 @@ export default function GlobalFabNavigation() {
         setTimeout(() => {
             setIsOpen(false);
             setDragOffsetY(0);
+            setShowTimePicker(false);
         }, 300);
     };
 
@@ -154,6 +159,8 @@ export default function GlobalFabNavigation() {
         }
         setItems(updated);
     };
+
+    const totalCalculatedAmount = items.reduce((acc, curr) => acc + parseRupiahNumber(curr.amount), 0);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -216,6 +223,11 @@ export default function GlobalFabNavigation() {
         }
 
         router.refresh();
+    };
+
+    const formattedDisplayTime = () => {
+        const d = new Date(transactionDate);
+        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     };
 
     return (
@@ -285,7 +297,7 @@ export default function GlobalFabNavigation() {
                             transform: `translateY(${isAnimating ? dragOffsetY : 100}%)`,
                             transition: dragOffsetY > 0 ? 'none' : 'transform 300ms cubic-bezier(0.16, 1, 0.3, 1)'
                         }}
-                        className="w-full p-6 rounded-t-[32px] border-t space-y-5 max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-800 text-zinc-100 font-sans"
+                        className="w-full p-6 rounded-t-[32px] border-t space-y-4 max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-800 text-zinc-100 font-sans pb-8"
                     >
                         <div
                             onTouchStart={handleTouchStart}
@@ -307,14 +319,14 @@ export default function GlobalFabNavigation() {
 
                         <form className="space-y-4" onSubmit={handleSubmit}>
                             <div>
-                                <label className="text-xs mb-2 block font-medium text-zinc-400 tracking-wide">Tipe Transaksi</label>
+                                <label className="text-xs mb-1.5 block font-medium text-zinc-400 tracking-wide">Tipe Transaksi</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setTransactionType('EXPENSE')}
-                                        className={`py-2.5 rounded-xl text-xs font-semibold tracking-wide border transition-all ${transactionType === 'EXPENSE'
-                                                ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-500/20'
-                                                : 'bg-zinc-950 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
+                                        className={`py-2 rounded-xl text-xs font-semibold tracking-wide border transition-all ${transactionType === 'EXPENSE'
+                                            ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-500/20'
+                                            : 'bg-zinc-950 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
                                             }`}
                                     >
                                         Pengeluaran (Keluar)
@@ -322,9 +334,9 @@ export default function GlobalFabNavigation() {
                                     <button
                                         type="button"
                                         onClick={() => setTransactionType('INCOME')}
-                                        className={`py-2.5 rounded-xl text-xs font-semibold tracking-wide border transition-all ${transactionType === 'INCOME'
-                                                ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md shadow-emerald-500/20'
-                                                : 'bg-zinc-950 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
+                                        className={`py-2 rounded-xl text-xs font-semibold tracking-wide border transition-all ${transactionType === 'INCOME'
+                                            ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md shadow-emerald-500/20'
+                                            : 'bg-zinc-950 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
                                             }`}
                                     >
                                         Pemasukan (Masuk)
@@ -333,16 +345,16 @@ export default function GlobalFabNavigation() {
                             </div>
 
                             <div>
-                                <label className="text-xs mb-2 block font-medium text-zinc-400 tracking-wide">Pilih Dompet</label>
-                                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                                <label className="text-xs mb-1.5 block font-medium text-zinc-400 tracking-wide">Pilih Dompet</label>
+                                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none scroll-smooth">
                                     {wallets.map((w) => (
                                         <button
                                             key={w.id}
                                             type="button"
                                             onClick={() => setSelectedWallet(w.name)}
-                                            className={`px-4 py-2 rounded-xl text-xs font-semibold tracking-wide border shrink-0 transition-all ${selectedWallet === w.name
-                                                    ? 'bg-emerald-500/15 border-emerald-500/80 text-emerald-400'
-                                                    : 'bg-zinc-950 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
+                                            className={`px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide border shrink-0 transition-all ${selectedWallet === w.name
+                                                ? 'bg-emerald-500/15 border-emerald-500/80 text-emerald-400'
+                                                : 'bg-zinc-950 border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
                                                 }`}
                                         >
                                             {w.name}
@@ -351,7 +363,7 @@ export default function GlobalFabNavigation() {
                                 </div>
                             </div>
 
-                            <div className="space-y-2.5">
+                            <div className="space-y-2">
                                 <label className="text-xs block font-medium text-zinc-400 tracking-wide">Baris Barang Belanjaan</label>
                                 {items.map((item, index) => (
                                     <div key={index} className="flex items-center gap-2">
@@ -361,7 +373,7 @@ export default function GlobalFabNavigation() {
                                             placeholder={`Item ${index + 1}`}
                                             value={item.description}
                                             onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                                            className="flex-1 border border-zinc-800 bg-zinc-950 text-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-zinc-600"
+                                            className="w-[60%] border border-zinc-800 bg-zinc-950 text-zinc-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-zinc-600"
                                             required
                                         />
                                         <input
@@ -369,14 +381,14 @@ export default function GlobalFabNavigation() {
                                             placeholder="Rp 0"
                                             value={item.amount}
                                             onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
-                                            className="w-32 border border-zinc-800 bg-zinc-950 text-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-zinc-600"
+                                            className="w-[40%] border border-zinc-800 bg-zinc-950 text-zinc-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-zinc-600"
                                             required
                                         />
                                         {items.length > 1 && (
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemoveItemRow(index)}
-                                                className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors"
+                                                className="p-1.5 text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors shrink-0"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -388,37 +400,62 @@ export default function GlobalFabNavigation() {
                             <button
                                 type="button"
                                 onClick={handleAddItemRow}
-                                className="w-full py-2.5 rounded-xl border border-dashed border-emerald-500/30 text-emerald-400 text-xs font-semibold tracking-wide hover:bg-emerald-500/10 transition-all flex items-center justify-center gap-1.5"
+                                className="w-full py-2 rounded-xl border border-dashed border-emerald-500/30 text-emerald-400 text-xs font-semibold tracking-wide hover:bg-emerald-500/10 transition-all flex items-center justify-center gap-1.5"
                             >
                                 <Plus className="w-3.5 h-3.5" /> Tambah Baris Nota
                             </button>
 
-                            <div>
-                                <div className="flex justify-between items-center mb-1.5">
-                                    <label className="text-xs block font-medium text-zinc-400 tracking-wide">Waktu</label>
+                            <div className="border-t border-zinc-800/80 pt-3">
+                                <div className="flex justify-between items-center">
                                     <button
                                         type="button"
-                                        onClick={() => setTransactionDate(getCurrentLocalDateTime())}
-                                        className="text-[11px] text-emerald-400 font-medium hover:underline flex items-center gap-1"
+                                        onClick={() => setShowTimePicker(!showTimePicker)}
+                                        className="text-xs font-semibold text-zinc-400 hover:text-emerald-400 transition-colors flex items-center gap-1.5 bg-zinc-950 border border-zinc-800/80 px-2.5 py-1.5 rounded-lg"
                                     >
-                                        <Clock className="w-3 h-3" /> Jam Sekarang
+                                        <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                                        <span>Hari ini, {formattedDisplayTime()} WIB</span>
+                                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTimePicker ? 'rotate-180' : ''}`} />
                                     </button>
+
+                                    {showTimePicker && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setTransactionDate(getCurrentLocalDateTime())}
+                                            className="text-[10px] text-emerald-400 font-medium hover:underline flex items-center gap-1"
+                                        >
+                                            Reset Sekarang
+                                        </button>
+                                    )}
                                 </div>
-                                <input
-                                    type="datetime-local"
-                                    value={transactionDate}
-                                    onChange={(e) => setTransactionDate(e.target.value)}
-                                    className="w-full border border-zinc-800 bg-zinc-950 text-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-medium font-sans focus:outline-none focus:border-emerald-500 transition-colors [color-scheme:dark]"
-                                />
+
+                                {showTimePicker && (
+                                    <div className="mt-2 animate-in fade-in duration-150">
+                                        <input
+                                            type="datetime-local"
+                                            value={transactionDate}
+                                            onChange={(e) => setTransactionDate(e.target.value)}
+                                            className="w-full border border-zinc-800 bg-zinc-950 text-zinc-200 rounded-xl px-3 py-2 text-xs font-medium font-sans focus:outline-none focus:border-emerald-500 transition-colors [color-scheme:dark]"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
-                            <button
-                                type="submit"
-                                disabled={submitting}
-                                className="w-full mt-2 font-bold text-xs tracking-wider uppercase py-3.5 rounded-xl transition-all shadow-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-                            >
-                                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Transaksi'}
-                            </button>
+                            <div className="sticky bottom-0 bg-zinc-900 pt-2 pb-1 space-y-2 border-t border-zinc-800/50">
+                                <div className="flex items-center justify-between px-1 text-xs">
+                                    <span className="font-semibold text-zinc-400">Total Dynamic:</span>
+                                    <span className="font-extrabold text-emerald-400 text-sm">
+                                        Rp {totalCalculatedAmount.toLocaleString('id-ID')}
+                                    </span>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={submitting}
+                                    className="w-full font-bold text-xs tracking-wider uppercase py-3 rounded-xl transition-all shadow-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                                >
+                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Transaksi'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>

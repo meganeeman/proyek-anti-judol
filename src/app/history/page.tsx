@@ -16,7 +16,9 @@ import {
     TrendingUp,
     Scale,
     X,
-    User
+    User,
+    Wallet,
+    AlertCircle
 } from 'lucide-react';
 import Toast from '@/components/Toast';
 
@@ -141,7 +143,7 @@ export default function HistoryPage() {
     const subTextClass = isDark ? 'text-zinc-400' : 'text-slate-500';
 
     return (
-        <div className={`min-h-screen font-sans p-4 md:p-8 pb-32 md:pb-8 transition-colors duration-300 ${bgClass}`}>
+        <div className={`min-h-screen font-sans p-4 md:p-8 pb-32 transition-colors duration-300 ${bgClass}`}>
 
             {toast && (
                 <Toast
@@ -188,32 +190,36 @@ export default function HistoryPage() {
                     </div>
                 </header>
 
-                <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-900/60 border-zinc-800/80' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1">
-                            <TrendingDown className="w-3.5 h-3.5" /> Total Pemasukan
-                        </span>
-                        <p className="text-lg font-black text-emerald-500 mt-1">
-                            Rp {totalIncome.toLocaleString('id-ID')}
-                        </p>
-                    </div>
+                <section className={`p-5 rounded-3xl border ${cardClass}`}>
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
+                            <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${subTextClass}`}>
+                                <Scale className="w-4 h-4 text-emerald-500" /> Nett Cashflow
+                            </span>
+                            <span className={`text-xl font-black ${netCashflow >= 0 ? 'text-emerald-400' : 'text-rose-500'}`}>
+                                {netCashflow >= 0 ? '+' : ''} Rp {netCashflow.toLocaleString('id-ID')}
+                            </span>
+                        </div>
 
-                    <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-900/60 border-zinc-800/80' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1">
-                            <TrendingUp className="w-3.5 h-3.5" /> Total Pengeluaran
-                        </span>
-                        <p className="text-lg font-black text-rose-400 mt-1">
-                            Rp {totalExpense.toLocaleString('id-ID')}
-                        </p>
-                    </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800/80' : 'bg-slate-50 border-slate-200'}`}>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1">
+                                    <TrendingDown className="w-3.5 h-3.5" /> Total Masuk
+                                </span>
+                                <p className="text-base font-black text-emerald-400 mt-1">
+                                    Rp {totalIncome.toLocaleString('id-ID')}
+                                </p>
+                            </div>
 
-                    <div className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-900/60 border-zinc-800/80' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${subTextClass}`}>
-                            <Scale className="w-3.5 h-3.5 text-emerald-500" /> Nett Cashflow
-                        </span>
-                        <p className={`text-lg font-black mt-1 ${netCashflow >= 0 ? 'text-emerald-400' : 'text-rose-500'}`}>
-                            {netCashflow >= 0 ? '+' : ''} Rp {netCashflow.toLocaleString('id-ID')}
-                        </p>
+                            <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-950/50 border-zinc-800/80' : 'bg-slate-50 border-slate-200'}`}>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1">
+                                    <TrendingUp className="w-3.5 h-3.5" /> Total Keluar
+                                </span>
+                                <p className="text-base font-black text-rose-400 mt-1">
+                                    Rp {totalExpense.toLocaleString('id-ID')}
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -223,15 +229,15 @@ export default function HistoryPage() {
                             <Search className={`w-4 h-4 absolute left-3.5 top-3 ${subTextClass}`} />
                             <input
                                 type="text"
-                                placeholder="Cari transaksi (misal: Rokok, Es Krim, DANA)..."
+                                placeholder="Cari transaksi..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className={`w-full border rounded-2xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
                             />
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
-                            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-2xl border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-2xl border shrink-0 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
                                 <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                                 <input
                                     type="date"
@@ -249,7 +255,7 @@ export default function HistoryPage() {
                                 )}
                             </div>
 
-                            <div className={`p-1 rounded-2xl border flex gap-1 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
+                            <div className={`p-1 rounded-2xl border flex gap-1 shrink-0 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
                                 <button
                                     onClick={() => setTypeFilter('ALL')}
                                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${typeFilter === 'ALL' ? 'bg-emerald-500 text-zinc-950' : `${subTextClass} hover:text-zinc-200`
@@ -276,7 +282,7 @@ export default function HistoryPage() {
                     </div>
                 </section>
 
-                <section className="space-y-6 pb-6">
+                <section className="space-y-6 pb-8">
                     {loading ? (
                         <p className={`text-center py-12 text-xs ${subTextClass}`}>Memuat riwayat transaksi...</p>
                     ) : Object.keys(groupedData).length === 0 ? (
@@ -319,23 +325,29 @@ export default function HistoryPage() {
                                             return (
                                                 <div
                                                     key={t.id}
-                                                    className={`p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-4 ${cardClass} hover:border-emerald-500/30`}
+                                                    className={`p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 ${cardClass} hover:border-emerald-500/30`}
                                                 >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`p-2.5 rounded-xl border ${isIncome
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className={`p-2.5 rounded-xl border shrink-0 ${isIncome
                                                             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                                                             : isJudol
                                                                 ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-                                                                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                                                                : 'bg-zinc-800 border-zinc-700 text-zinc-300'
                                                             }`}>
-                                                            {isIncome ? <ArrowDownCircle className="w-5 h-5" /> : <ArrowUpCircle className="w-5 h-5" />}
+                                                            {isIncome ? (
+                                                                <ArrowDownCircle className="w-5 h-5" />
+                                                            ) : isJudol ? (
+                                                                <AlertCircle className="w-5 h-5" />
+                                                            ) : (
+                                                                <Wallet className="w-5 h-5" />
+                                                            )}
                                                         </div>
 
-                                                        <div className="space-y-0.5">
-                                                            <h3 className="text-sm font-bold tracking-tight">
+                                                        <div className="space-y-0.5 min-w-0">
+                                                            <h3 className="text-sm font-bold tracking-tight truncate">
                                                                 {t.description}
                                                             </h3>
-                                                            <div className="flex items-center gap-2 text-[11px]">
+                                                            <div className="flex items-center gap-1.5 text-[11px] flex-wrap">
                                                                 <span className={`px-2 py-0.5 rounded-md font-medium border ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-zinc-300' : 'bg-slate-100 border-slate-200 text-slate-700'
                                                                     }`}>
                                                                     {t.wallet_name}
@@ -343,15 +355,17 @@ export default function HistoryPage() {
                                                                 <span className={`flex items-center gap-1 ${subTextClass}`}>
                                                                     <Tag className="w-3 h-3 text-emerald-500/70" /> {t.category || 'Survival Mode'}
                                                                 </span>
-                                                                <span className={subTextClass}>• {formattedTime} WIB</span>
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="text-right">
-                                                        <span className={`text-base font-black ${isIncome ? 'text-emerald-400' : 'text-rose-400'
+                                                    <div className="text-right shrink-0">
+                                                        <span className={`text-sm md:text-base font-black block ${isIncome ? 'text-emerald-400' : 'text-rose-400'
                                                             }`}>
                                                             {isIncome ? '+' : '-'} Rp {Math.round(Number(t.amount) || 0).toLocaleString('id-ID')}
+                                                        </span>
+                                                        <span className={`text-[10px] block ${subTextClass}`}>
+                                                            {formattedTime} WIB
                                                         </span>
                                                     </div>
                                                 </div>

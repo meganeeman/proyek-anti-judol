@@ -16,7 +16,11 @@ import {
     Loader2,
     Eye,
     EyeOff,
-    Flame
+    Flame,
+    Lock,
+    Check,
+    AlertCircle,
+    X
 } from 'lucide-react';
 import Toast from '@/components/Toast';
 
@@ -67,10 +71,13 @@ export default function ProfilePage() {
 
     const [monthlyLimit, setMonthlyLimit] = useState('');
     const [judolLimit, setJudolLimit] = useState('');
+    const [initialMonthlyLimit, setInitialMonthlyLimit] = useState(1500000);
+    const [initialJudolLimit, setInitialJudolLimit] = useState(300000);
     const [streakDays, setStreakDays] = useState(30);
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error') => {
@@ -96,8 +103,12 @@ export default function ProfilePage() {
             .single();
 
         if (budgetData) {
-            setMonthlyLimit('Rp ' + (Number(budgetData.monthly_limit) || 1500000).toLocaleString('id-ID'));
-            setJudolLimit('Rp ' + (Number(budgetData.judol_limit) || 300000).toLocaleString('id-ID'));
+            const mLimit = Number(budgetData.monthly_limit) || 1500000;
+            const jLimit = Number(budgetData.judol_limit) || 300000;
+            setInitialMonthlyLimit(mLimit);
+            setInitialJudolLimit(jLimit);
+            setMonthlyLimit('Rp ' + mLimit.toLocaleString('id-ID'));
+            setJudolLimit('Rp ' + jLimit.toLocaleString('id-ID'));
         } else {
             setMonthlyLimit('Rp 1.500.000');
             setJudolLimit('Rp 300.000');
@@ -163,30 +174,7 @@ export default function ProfilePage() {
         showToast(`Mode tema diubah ke ${newTheme === 'dark' ? 'Gelap (Dark)' : 'Terang (Light)'}`, 'success');
     };
 
-    const handleUpdateProfile = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!currentUser) return;
-
-        setSubmitting(true);
-        const avatarUrl = `https://api.dicebear.com/7.x/lorelei/svg?seed=${avatarSeed}&backgroundColor=b6e3f4`;
-
-        const { error } = await supabase.auth.updateUser({
-            data: {
-                display_name: displayName,
-                avatar_url: avatarUrl
-            }
-        });
-
-        setSubmitting(false);
-
-        if (error) {
-            showToast('Gagal memperbarui profil: ' + error.message, 'error');
-        } else {
-            showToast('Profil berhasil diperbarui!', 'success');
-        }
-    };
-
-    const handleUpdateBudget = async (e: React.FormEvent) => {
+    const handleSaveAllSettings = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!currentUser) return;
 
@@ -198,7 +186,29 @@ export default function ProfilePage() {
             return;
         }
 
+        const isIncreasingMonthly = newMonthly > initialMonthlyLimit;
+        const isIncreasingJudol = newJudol > initialJudolLimit;
+
+        if (isIncreasingMonthly || isIncreasingJudol) {
+            showToast('Cooling-Off Active: Kenaikan limit terkunci demi menjaga komitmen Clean Streak kamu!', 'error');
+            return;
+        }
+
         setSubmitting(true);
+
+        const avatarUrl = `https://api.dicebear.com/7.x/lorelei/svg?seed=${avatarSeed}&backgroundColor=b6e3f4`;
+        const { error: profileError } = await supabase.auth.updateUser({
+            data: {
+                display_name: displayName,
+                avatar_url: avatarUrl
+            }
+        });
+
+        if (profileError) {
+            setSubmitting(false);
+            showToast('Gagal memperbarui profil: ' + profileError.message, 'error');
+            return;
+        }
 
         const { data: existingBudget } = await supabase
             .from('budgets')
@@ -207,26 +217,28 @@ export default function ProfilePage() {
             .limit(1)
             .single();
 
-        let error = null;
+        let budgetError = null;
         if (existingBudget) {
             const res = await supabase
                 .from('budgets')
                 .update({ monthly_limit: newMonthly, judol_limit: newJudol })
                 .eq('user_id', currentUser.id);
-            error = res.error;
+            budgetError = res.error;
         } else {
             const res = await supabase
                 .from('budgets')
                 .insert([{ monthly_limit: newMonthly, judol_limit: newJudol, user_id: currentUser.id }]);
-            error = res.error;
+            budgetError = res.error;
         }
 
         setSubmitting(false);
 
-        if (error) {
-            showToast('Gagal memperbarui limit: ' + error.message, 'error');
+        if (budgetError) {
+            showToast('Gagal memperbarui limit: ' + budgetError.message, 'error');
         } else {
-            showToast('Target limit keuangan berhasil disimpan!', 'success');
+            setInitialMonthlyLimit(newMonthly);
+            setInitialJudolLimit(newJudol);
+            showToast('Seluruh perubahan pengaturan berhasil disimpan!', 'success');
         }
     };
 
@@ -245,7 +257,7 @@ export default function ProfilePage() {
     const subTextClass = isDark ? 'text-zinc-400' : 'text-slate-500';
 
     return (
-        <div className={`min-h-screen font-sans p-4 md:p-8 pb-32 md:pb-8 transition-colors duration-300 ${bgClass}`}>
+        <div className={`min-h-screen font-sans p-4 md:p-8 pb-32 transition-colors duration-300 ${bgClass}`}>
 
             {toast && (
                 <Toast
@@ -295,40 +307,41 @@ export default function ProfilePage() {
                         <p className={`text-xs ${subTextClass}`}>Memuat data profil...</p>
                     </div>
                 ) : (
-                    <>
+                    <form onSubmit={handleSaveAllSettings} className="space-y-6">
                         <section className={`p-6 rounded-3xl border space-y-5 ${cardClass}`}>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <img
-                                        src={`https://api.dicebear.com/7.x/lorelei/svg?seed=${avatarSeed}&backgroundColor=b6e3f4`}
-                                        alt="Avatar Preview"
-                                        className="w-16 h-16 rounded-2xl border-2 border-emerald-500/50 object-cover bg-emerald-500/10 shadow-md shrink-0"
-                                    />
-                                    <div className="space-y-0.5 overflow-hidden">
-                                        <h2 className="text-lg font-black tracking-tight truncate">{displayName || 'Pengguna'}</h2>
-                                        <div className="flex items-center gap-2">
-                                            <p className={`text-xs ${subTextClass} font-medium`}>
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3.5 min-w-0">
+                                    <div className="relative shrink-0">
+                                        <img
+                                            src={`https://api.dicebear.com/7.x/lorelei/svg?seed=${avatarSeed}&backgroundColor=b6e3f4`}
+                                            alt="Avatar Preview"
+                                            className="w-14 h-14 rounded-2xl border-2 border-emerald-500/50 object-cover bg-emerald-500/10 shadow-md"
+                                        />
+                                        <div className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-zinc-950 px-1.5 py-0.5 rounded-full border border-orange-400 font-extrabold text-[9px] flex items-center gap-0.5 shadow-sm">
+                                            <Flame className="w-2.5 h-2.5 fill-zinc-950" />
+                                            <span>{streakDays}d</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-0.5 min-w-0">
+                                        <h2 className="text-base font-black tracking-tight truncate">{displayName || 'Pengguna'}</h2>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className={`text-xs ${subTextClass} font-medium truncate`}>
                                                 {showFullEmail ? currentUser?.email : maskEmail(currentUser?.email || '')}
                                             </p>
                                             <button
                                                 type="button"
                                                 onClick={() => setShowFullEmail(!showFullEmail)}
-                                                className={`p-1 rounded-lg transition-colors hover:text-emerald-500 ${subTextClass}`}
-                                                title={showFullEmail ? "Sembunyikan Email" : "Tampilkan Email"}
+                                                className={`p-1 rounded-lg transition-colors hover:text-emerald-500 shrink-0 ${subTextClass}`}
                                             >
                                                 {showFullEmail ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                             </button>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl border font-bold text-xs bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400`}>
-                                    <Flame className="w-4 h-4 fill-orange-500 animate-pulse" />
-                                    <span>{streakDays} Hari Clean Streak!</span>
-                                </div>
                             </div>
 
-                            <form onSubmit={handleUpdateProfile} className="space-y-4 pt-2">
+                            <div className="space-y-4 pt-2">
                                 <div>
                                     <label className={`text-xs mb-1.5 block font-semibold ${subTextClass}`}>Nama Tampilan</label>
                                     <input
@@ -343,46 +356,54 @@ export default function ProfilePage() {
 
                                 <div>
                                     <label className={`text-xs mb-1.5 block font-semibold ${subTextClass}`}>Pilih Karakter Avatar</label>
-                                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                                        {AVATAR_SEEDS.map((seed) => (
-                                            <button
-                                                key={seed}
-                                                type="button"
-                                                onClick={() => setAvatarSeed(seed)}
-                                                className={`p-1 rounded-xl border shrink-0 transition-all ${avatarSeed === seed
-                                                    ? 'border-emerald-500 bg-emerald-500/20 ring-2 ring-emerald-500/30'
-                                                    : 'border-transparent opacity-60 hover:opacity-100'
-                                                    }`}
-                                            >
-                                                <img
-                                                    src={`https://api.dicebear.com/7.x/lorelei/svg?seed=${seed}&backgroundColor=b6e3f4`}
-                                                    alt={seed}
-                                                    className="w-10 h-10 rounded-lg object-cover"
-                                                />
-                                            </button>
-                                        ))}
+                                    <div className="grid grid-cols-4 gap-2.5 pt-1">
+                                        {AVATAR_SEEDS.map((seed) => {
+                                            const isActive = avatarSeed === seed;
+                                            return (
+                                                <button
+                                                    key={seed}
+                                                    type="button"
+                                                    onClick={() => setAvatarSeed(seed)}
+                                                    className={`p-1.5 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1 relative ${isActive
+                                                        ? 'border-emerald-500 bg-emerald-500/20 ring-2 ring-emerald-500/50 shadow-lg shadow-emerald-500/20'
+                                                        : 'border-zinc-800/80 bg-zinc-950/40 opacity-60 hover:opacity-100'
+                                                        }`}
+                                                >
+                                                    <img
+                                                        src={`https://api.dicebear.com/7.x/lorelei/svg?seed=${seed}&backgroundColor=b6e3f4`}
+                                                        alt={seed}
+                                                        className="w-12 h-12 rounded-xl object-cover"
+                                                    />
+                                                    {isActive && (
+                                                        <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center">
+                                                            <Check className="w-3 h-3 stroke-[3]" />
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2 text-xs disabled:opacity-50"
-                                >
-                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Perubahan Profil'}
-                                </button>
-                            </form>
+                            </div>
                         </section>
 
                         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
-                            <div className="flex items-center gap-2 text-sm font-bold text-emerald-500">
-                                <Target className="w-5 h-5" />
-                                <h2>Target & Limit Keuangan (Minimal Rp 100.000)</h2>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-sm font-bold text-emerald-500">
+                                    <Target className="w-5 h-5" />
+                                    <h2>Target & Limit Keuangan</h2>
+                                </div>
+                                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                                    <Lock className="w-3 h-3" /> Lockdown Guardrail
+                                </span>
                             </div>
 
-                            <form onSubmit={handleUpdateBudget} className="space-y-4">
+                            <div className="space-y-4">
                                 <div>
-                                    <label className={`text-xs mb-1.5 block font-semibold ${subTextClass}`}>Monthly Budget Limit (Rp)</label>
+                                    <div className="flex justify-between items-center mb-1.5">
+                                        <label className={`text-xs block font-semibold ${subTextClass}`}>Monthly Budget Limit (Rp)</label>
+                                        <span className="text-[10px] text-zinc-500">Menurunkan Limit: Instan</span>
+                                    </div>
                                     <input
                                         type="text"
                                         value={monthlyLimit}
@@ -394,7 +415,10 @@ export default function ProfilePage() {
                                 </div>
 
                                 <div>
-                                    <label className={`text-xs mb-1.5 block font-semibold ${subTextClass}`}>Recovery Budget Limit (Rp)</label>
+                                    <div className="flex justify-between items-center mb-1.5">
+                                        <label className={`text-xs block font-semibold ${subTextClass}`}>Recovery Budget Limit (Rp)</label>
+                                        <span className="text-[10px] text-zinc-500">Menaikkan Limit: Cooling-Off</span>
+                                    </div>
                                     <input
                                         type="text"
                                         value={judolLimit}
@@ -404,15 +428,7 @@ export default function ProfilePage() {
                                         required
                                     />
                                 </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2 text-xs disabled:opacity-50"
-                                >
-                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Target Keuangan'}
-                                </button>
-                            </form>
+                            </div>
                         </section>
 
                         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
@@ -441,18 +457,66 @@ export default function ProfilePage() {
                             </div>
                         </section>
 
-                        <section>
+                        <div className="sticky bottom-6 bg-zinc-950/80 backdrop-blur-md pt-2 pb-1 space-y-3">
                             <button
-                                onClick={handleLogout}
-                                className="w-full py-3.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95"
+                                type="submit"
+                                disabled={submitting}
+                                className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2 text-xs uppercase tracking-wider disabled:opacity-50"
+                            >
+                                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Semua Pengaturan'}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowLogoutModal(true)}
+                                className="w-full py-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95"
                             >
                                 <LogOut className="w-4 h-4" /> Keluar Dari Akun (Logout)
                             </button>
-                        </section>
-                    </>
+                        </div>
+                    </form>
                 )}
 
             </div>
+
+            {showLogoutModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className={`p-6 rounded-3xl w-full max-w-sm space-y-4 relative border animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900 shadow-xl'
+                        }`}>
+                        <button onClick={() => setShowLogoutModal(false)} className={`absolute top-4 right-4 p-1 ${subTextClass}`}>
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                            <AlertCircle className="w-5 h-5" />
+                        </div>
+
+                        <div className="space-y-1">
+                            <h3 className="text-base font-bold">Konfirmasi Logout</h3>
+                            <p className="text-xs text-zinc-400 leading-relaxed">
+                                Apakah kamu yakin ingin keluar dari akun? Kamu perlu login kembali untuk mengakses data keuangan sehat kamu.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowLogoutModal(false)}
+                                className="flex-1 py-2.5 rounded-xl border border-zinc-800 text-xs font-bold hover:bg-zinc-800 transition-all"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleLogout}
+                                className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-xs font-bold hover:bg-rose-600 transition-all shadow-md shadow-rose-500/20"
+                            >
+                                Ya, Keluar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -96,7 +96,7 @@ export default function Home() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userMetadata, setUserMetadata] = useState<{ displayName: string; avatarUrl: string }>({
-    displayName: 'Pengguna',
+    displayName: 'Akbar',
     avatarUrl: 'https://api.dicebear.com/7.x/lorelei/svg?seed=Aiden&backgroundColor=b6e3f4'
   });
 
@@ -160,8 +160,11 @@ export default function Home() {
       setCurrentUser(user);
 
       const meta = user.user_metadata || {};
+      const fullDisplayName = meta.display_name || user.email?.split('@')[0] || 'Akbar';
+      const firstName = fullDisplayName.split(' ')[0];
+
       setUserMetadata({
-        displayName: meta.display_name || user.email?.split('@')[0] || 'Pengguna',
+        displayName: firstName,
         avatarUrl: meta.avatar_url || 'https://api.dicebear.com/7.x/lorelei/svg?seed=Aiden&backgroundColor=b6e3f4'
       });
 
@@ -556,7 +559,7 @@ export default function Home() {
                 alt="Avatar Mini"
                 className="w-8 h-8 rounded-xl object-cover border border-emerald-500/40 bg-emerald-500/10 shrink-0"
               />
-              <span className="text-xs font-extrabold max-w-[100px] sm:max-w-[120px] truncate">
+              <span className="text-xs font-extrabold max-w-[80px] sm:max-w-[120px] truncate">
                 {userMetadata.displayName}
               </span>
             </Link>
@@ -601,19 +604,13 @@ export default function Home() {
 
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1">
-            <h2 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${subTextClass}`}>
+            <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${subTextClass}`}>
               <CreditCard className="w-4 h-4 text-emerald-500" /> Active Wallets
             </h2>
-            <button
-              onClick={() => setIsWalletModalOpen(true)}
-              className="text-xs text-emerald-500 hover:underline flex items-center gap-1 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 active:scale-95 transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" /> Dompet
-            </button>
           </div>
 
-          <div className="relative">
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory -mx-4 px-4">
+          <div className="relative w-full">
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory -mx-4 px-4 scroll-smooth">
               {loading ? (
                 <p className={`text-xs ${subTextClass}`}>Memuat dompet...</p>
               ) : wallets.length === 0 ? (
@@ -641,8 +638,23 @@ export default function Home() {
                   );
                 })
               )}
+
+              <button
+                onClick={() => setIsWalletModalOpen(true)}
+                className={`min-w-[120px] shrink-0 snap-align-start p-3.5 rounded-2xl border border-dashed transition-all duration-300 flex flex-col items-center justify-center gap-1.5 group ${isDark
+                  ? 'bg-zinc-900/30 border-zinc-700 hover:border-emerald-500/60'
+                  : 'bg-white/50 border-slate-300 hover:border-emerald-500/60'
+                  }`}
+              >
+                <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500 group-hover:text-zinc-950 transition-colors">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-emerald-500 group-hover:underline">
+                  + Dompet
+                </span>
+              </button>
             </div>
-            <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-zinc-950 to-transparent"></div>
+            <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-10 bg-gradient-to-l from-zinc-950 to-transparent"></div>
           </div>
         </section>
 
@@ -665,11 +677,22 @@ export default function Home() {
             </span>
           </div>
 
-          <div className="space-y-1.5">
-            <div className={`flex justify-between text-xs font-medium ${subTextClass}`}>
-              <span>Terpakai Hari Ini: Rp {todayExpense.toLocaleString('id-ID')}</span>
-              <span>Target Limit Harian: Rp {baseDailyLimit.toLocaleString('id-ID')}</span>
+          <div className="grid grid-cols-2 gap-2 bg-zinc-950/60 p-3 rounded-2xl border border-zinc-800/80">
+            <div>
+              <span className="text-[10px] text-zinc-400 block uppercase font-medium">Terpakai Hari Ini</span>
+              <span className={`text-sm font-bold ${isDailyOverbudget ? 'text-rose-400' : 'text-emerald-400'}`}>
+                Rp {todayExpense.toLocaleString('id-ID')}
+              </span>
             </div>
+            <div className="text-right">
+              <span className="text-[10px] text-zinc-400 block uppercase font-medium">Target Limit Harian</span>
+              <span className="text-sm font-bold text-zinc-200">
+                Rp {baseDailyLimit.toLocaleString('id-ID')}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
             <div className={`w-full h-3 rounded-full overflow-hidden p-0.5 border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-200 border-slate-300'}`}>
               <div
                 className={`h-full rounded-full transition-all duration-500 ${isDailyOverbudget ? 'bg-rose-500' : getProgressBarColor(dailyUsagePercentage)}`}
@@ -679,8 +702,8 @@ export default function Home() {
           </div>
 
           {isDailyOverbudget && (
-            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2 font-semibold">
-              <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2 font-semibold">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>PUNISHMENT: Overbudget Rp {overbudgetAmount.toLocaleString('id-ID')} dialihkan memotong Recovery Budget & Streak Clean kamu pecah!</span>
             </div>
           )}
