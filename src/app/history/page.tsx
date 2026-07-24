@@ -30,6 +30,13 @@ interface Transaction {
     wallet_name: string;
 }
 
+interface GroupSummary {
+    dateLabel: string;
+    income: number;
+    expense: number;
+    items: Transaction[];
+}
+
 export default function HistoryPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
@@ -80,16 +87,16 @@ export default function HistoryPage() {
 
     const totalIncome = filteredTransactions
         .filter(t => t.type?.toUpperCase() === 'INCOME')
-        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+        .reduce((acc, curr) => acc + Math.round(Number(curr.amount) || 0), 0);
 
     const totalExpense = filteredTransactions
         .filter(t => t.type?.toUpperCase() === 'EXPENSE')
-        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+        .reduce((acc, curr) => acc + Math.round(Number(curr.amount) || 0), 0);
 
     const netCashflow = totalIncome - totalExpense;
 
     const groupTransactionsByDate = (transList: Transaction[]) => {
-        const groups: { [key: string]: Transaction[] } = {};
+        const groups: { [key: string]: GroupSummary } = {};
 
         transList.forEach(t => {
             if (!t.created_at) return;
@@ -104,9 +111,22 @@ export default function HistoryPage() {
             }
 
             if (!groups[groupLabel]) {
-                groups[groupLabel] = [];
+                groups[groupLabel] = {
+                    dateLabel: groupLabel,
+                    income: 0,
+                    expense: 0,
+                    items: []
+                };
             }
-            groups[groupLabel].push(t);
+
+            const amt = Math.round(Number(t.amount) || 0);
+            if (t.type?.toUpperCase() === 'INCOME') {
+                groups[groupLabel].income += amt;
+            } else {
+                groups[groupLabel].expense += amt;
+            }
+
+            groups[groupLabel].items.push(t);
         });
 
         return groups;
@@ -264,67 +284,83 @@ export default function HistoryPage() {
                             <p className={`text-sm font-semibold ${subTextClass}`}>Tidak ada riwayat transaksi yang ditemukan.</p>
                         </div>
                     ) : (
-                        Object.keys(groupedData).map((dateGroup) => (
-                            <div key={dateGroup} className="space-y-2.5">
-                                <div className="flex items-center gap-2 px-2">
-                                    <Calendar className="w-3.5 h-3.5 text-emerald-500" />
-                                    <span className={`text-xs font-extrabold tracking-wider uppercase ${subTextClass}`}>
-                                        {dateGroup}
-                                    </span>
-                                </div>
+                        Object.keys(groupedData).map((dateGroupKey) => {
+                            const group = groupedData[dateGroupKey];
 
-                                <div className="space-y-2">
-                                    {groupedData[dateGroup].map((t) => {
-                                        const isIncome = t.type?.toUpperCase() === 'INCOME';
-                                        const isJudol = t.category === 'Special Recovery Tracker';
-                                        const formattedTime = t.created_at
-                                            ? new Date(t.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-                                            : '';
+                            return (
+                                <div key={dateGroupKey} className="space-y-2.5">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 px-2 py-1 border-b border-zinc-800/40">
+                                        <div className="flex items-center gap-2">
+                                            <Calendar className="w-3.5 h-3.5 text-emerald-500" />
+                                            <span className={`text-xs font-extrabold tracking-wider uppercase ${subTextClass}`}>
+                                                {group.dateLabel}
+                                            </span>
+                                        </div>
 
-                                        return (
-                                            <div
-                                                key={t.id}
-                                                className={`p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-4 ${cardClass} hover:border-emerald-500/30`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`p-2.5 rounded-xl border ${isIncome
-                                                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                                                        : isJudol
-                                                            ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-                                                            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                                                        }`}>
-                                                        {isIncome ? <ArrowDownCircle className="w-5 h-5" /> : <ArrowUpCircle className="w-5 h-5" />}
-                                                    </div>
+                                        <div className="flex items-center gap-3 text-[11px] font-bold">
+                                            <span className="text-emerald-400">
+                                                Pemasukan: Rp {group.income.toLocaleString('id-ID')}
+                                            </span>
+                                            <span className={subTextClass}>|</span>
+                                            <span className="text-rose-400">
+                                                Pengeluaran: Rp {group.expense.toLocaleString('id-ID')}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                                                    <div className="space-y-0.5">
-                                                        <h3 className="text-sm font-bold tracking-tight">
-                                                            {t.description}
-                                                        </h3>
-                                                        <div className="flex items-center gap-2 text-[11px]">
-                                                            <span className={`px-2 py-0.5 rounded-md font-medium border ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-zinc-300' : 'bg-slate-100 border-slate-200 text-slate-700'
-                                                                }`}>
-                                                                {t.wallet_name}
-                                                            </span>
-                                                            <span className={`flex items-center gap-1 ${subTextClass}`}>
-                                                                <Tag className="w-3 h-3 text-emerald-500/70" /> {t.category || 'Survival Mode'}
-                                                            </span>
-                                                            <span className={subTextClass}>• {formattedTime} WIB</span>
+                                    <div className="space-y-2">
+                                        {group.items.map((t) => {
+                                            const isIncome = t.type?.toUpperCase() === 'INCOME';
+                                            const isJudol = t.category === 'Special Recovery Tracker';
+                                            const formattedTime = t.created_at
+                                                ? new Date(t.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+                                                : '';
+
+                                            return (
+                                                <div
+                                                    key={t.id}
+                                                    className={`p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-4 ${cardClass} hover:border-emerald-500/30`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`p-2.5 rounded-xl border ${isIncome
+                                                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                                            : isJudol
+                                                                ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
+                                                                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                                                            }`}>
+                                                            {isIncome ? <ArrowDownCircle className="w-5 h-5" /> : <ArrowUpCircle className="w-5 h-5" />}
+                                                        </div>
+
+                                                        <div className="space-y-0.5">
+                                                            <h3 className="text-sm font-bold tracking-tight">
+                                                                {t.description}
+                                                            </h3>
+                                                            <div className="flex items-center gap-2 text-[11px]">
+                                                                <span className={`px-2 py-0.5 rounded-md font-medium border ${isDark ? 'bg-zinc-800/80 border-zinc-700/60 text-zinc-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                                                                    }`}>
+                                                                    {t.wallet_name}
+                                                                </span>
+                                                                <span className={`flex items-center gap-1 ${subTextClass}`}>
+                                                                    <Tag className="w-3 h-3 text-emerald-500/70" /> {t.category || 'Survival Mode'}
+                                                                </span>
+                                                                <span className={subTextClass}>• {formattedTime} WIB</span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
 
-                                                <div className="text-right">
-                                                    <span className={`text-base font-black ${isIncome ? 'text-emerald-400' : 'text-rose-400'
-                                                        }`}>
-                                                        {isIncome ? '+' : '-'} Rp {(Number(t.amount) || 0).toLocaleString('id-ID')}
-                                                    </span>
+                                                    <div className="text-right">
+                                                        <span className={`text-base font-black ${isIncome ? 'text-emerald-400' : 'text-rose-400'
+                                                            }`}>
+                                                            {isIncome ? '+' : '-'} Rp {Math.round(Number(t.amount) || 0).toLocaleString('id-ID')}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </section>
 
