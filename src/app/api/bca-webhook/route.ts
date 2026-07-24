@@ -30,6 +30,7 @@ export async function POST(request: Request) {
         const isDana = emailText.toLowerCase().includes('dana') || true;
         const description = isDana ? 'Topup DANA via BCA' : 'Mutasi BCA Otomatis';
 
+        // 1. Simpan Transaksi Pengeluaran BCA
         const { data: bcaTrans, error: bcaError } = await supabase
             .from('transactions')
             .insert([{
@@ -44,7 +45,25 @@ export async function POST(request: Request) {
 
         if (bcaError) throw bcaError;
 
+        // 2. Update Saldo BCA di Tabel Wallets (Kurangi Saldo)
+        const { data: currentBca } = await supabase
+            .from('wallets')
+            .select('balance')
+            .eq('name', sourceWallet)
+            .single();
+
+        if (currentBca) {
+            await supabase
+                .from('wallets')
+                .update({ balance: currentBca.balance - amount })
+                .eq('name', sourceWallet);
+        }
+
+        // 3. Jika Transaksi DANA, Catat Pemasukan & Update Saldo Dana
         if (isDana) {
+            const targetWallet = 'Dana';
+
+            // Catat transaksi pemasukan Dana
             const { error: danaError } = await supabase
                 .from('transactions')
                 .insert([{
@@ -52,16 +71,30 @@ export async function POST(request: Request) {
                     amount: amount,
                     type: 'INCOME',
                     category: 'Main Cashflow',
-                    wallet_name: 'DANA',
+                    wallet_name: targetWallet,
                     created_at: new Date().toISOString()
                 }]);
 
-            if (danaError) console.error('Gagal mencatat otomatis ke DANA:', danaError.message);
+            if (danaError) console.error('Gagal mencatat otomatis ke Dana:', danaError.message);
+
+            // Update Saldo Dana di Tabel Wallets (Tambah Saldo)
+            const { data: currentDana } = await supabase
+                .from('wallets')
+                .select('balance')
+                .eq('name', targetWallet)
+                .single();
+
+            if (currentDana) {
+                await supabase
+                    .from('wallets')
+                    .update({ balance: currentDana.balance + amount })
+                    .eq('name', targetWallet);
+            }
         }
 
         return NextResponse.json({
             success: true,
-            message: `Berhasil! Transaksi Rp ${amount} tercatat otomatis!`,
+            message: `Berhasil! Transaksi Rp ${amount} tercatat & saldo wallet ter-update!`,
             data: bcaTrans
         });
 
