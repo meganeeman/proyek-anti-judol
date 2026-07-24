@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+const TARGET_USER_ID = '44cfa907-94c8-4d9a-b665-5e6d413593ca';
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -30,7 +32,6 @@ export async function POST(request: Request) {
         const isDana = emailText.toLowerCase().includes('dana') || true;
         const description = isDana ? 'Topup DANA via BCA' : 'Mutasi BCA Otomatis';
 
-        // 1. Simpan Transaksi Pengeluaran BCA
         const { data: bcaTrans, error: bcaError } = await supabase
             .from('transactions')
             .insert([{
@@ -39,31 +40,31 @@ export async function POST(request: Request) {
                 type: 'EXPENSE',
                 category: isDana ? 'Topup E-Wallet' : 'Survival Mode',
                 wallet_name: sourceWallet,
+                user_id: TARGET_USER_ID,
                 created_at: new Date().toISOString()
             }])
             .select();
 
         if (bcaError) throw bcaError;
 
-        // 2. Update Saldo BCA di Tabel Wallets (Kurangi Saldo)
         const { data: currentBca } = await supabase
             .from('wallets')
             .select('balance')
             .eq('name', sourceWallet)
+            .eq('user_id', TARGET_USER_ID)
             .single();
 
         if (currentBca) {
             await supabase
                 .from('wallets')
                 .update({ balance: currentBca.balance - amount })
-                .eq('name', sourceWallet);
+                .eq('name', sourceWallet)
+                .eq('user_id', TARGET_USER_ID);
         }
 
-        // 3. Jika Transaksi DANA, Catat Pemasukan & Update Saldo Dana
         if (isDana) {
             const targetWallet = 'Dana';
 
-            // Catat transaksi pemasukan Dana
             const { error: danaError } = await supabase
                 .from('transactions')
                 .insert([{
@@ -72,23 +73,25 @@ export async function POST(request: Request) {
                     type: 'INCOME',
                     category: 'Main Cashflow',
                     wallet_name: targetWallet,
+                    user_id: TARGET_USER_ID,
                     created_at: new Date().toISOString()
                 }]);
 
             if (danaError) console.error('Gagal mencatat otomatis ke Dana:', danaError.message);
 
-            // Update Saldo Dana di Tabel Wallets (Tambah Saldo)
             const { data: currentDana } = await supabase
                 .from('wallets')
                 .select('balance')
                 .eq('name', targetWallet)
+                .eq('user_id', TARGET_USER_ID)
                 .single();
 
             if (currentDana) {
                 await supabase
                     .from('wallets')
                     .update({ balance: currentDana.balance + amount })
-                    .eq('name', targetWallet);
+                    .eq('name', targetWallet)
+                    .eq('user_id', TARGET_USER_ID);
             }
         }
 
