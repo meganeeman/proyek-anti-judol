@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -13,23 +13,12 @@ import {
     History as HistoryIcon,
     Moon,
     Sun,
-    Plus,
-    Clock,
-    X,
     Loader2,
-    TrendingUp,
     Eye,
     EyeOff,
-    Flame,
-    Sparkles
+    Flame
 } from 'lucide-react';
 import Toast from '@/components/Toast';
-
-interface WalletItem {
-    id: number;
-    name: string;
-    balance: number;
-}
 
 interface Transaction {
     id: number;
@@ -45,23 +34,11 @@ const SENSITIVE_KEYWORDS = [
     'maxwin', 'pragmatic', 'habanero', 'sbobet', 'judi', 'judionline', 'poker'
 ];
 
-const RECOVERY_ADVICES = [
-    'Transaksi dicatat ke Recovery Budget. Ingat, fokus pada tujuan finansial jangka panjang dan hindari impulsivitas demi masa depan yang lebih stabil!',
-    'Tetap tenang dan kendalikan keuanganmu. Setiap rupiah yang kamu hemat adalah langkah menuju kebebasan finansial!',
-    'Ingat komitmen awalmu! Uangmu jauh lebih berharga jika dialokasikan untuk hal-hal yang benar-benar produktif.'
-];
-
 const MIN_LIMIT_VALUE = 100000;
 
 const AVATAR_SEEDS = [
     'Aiden', 'Felix', 'Luna', 'Milo', 'Oliver', 'Sofia', 'Zoe', 'Leo'
 ];
-
-const getCurrentLocalDateTime = () => {
-    const now = new Date();
-    const offset = now.getTimezoneOffset() * 60000;
-    return new Date(now.getTime() - offset).toISOString().slice(0, 16);
-};
 
 const formatRupiahInput = (val: string) => {
     const numberString = val.replace(/[^0-9]/g, '');
@@ -96,16 +73,6 @@ export default function ProfilePage() {
     const [submitting, setSubmitting] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-    const [wallets, setWallets] = useState<WalletItem[]>([]);
-    const [isMobileFormOpen, setIsMobileFormOpen] = useState(false);
-    const [mobileDesc, setMobileDesc] = useState('');
-    const [mobileAmount, setMobileAmount] = useState('');
-    const [mobileType, setMobileType] = useState('EXPENSE');
-    const [mobileWallet, setMobileWallet] = useState('');
-    const [mobileDate, setMobileDate] = useState(getCurrentLocalDateTime());
-
-    const amountInputRef = useRef<HTMLInputElement>(null);
-
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
     };
@@ -119,19 +86,6 @@ export default function ProfilePage() {
         if (meta.avatar_url && meta.avatar_url.includes('seed=')) {
             const seedParam = meta.avatar_url.split('seed=')[1]?.split('&')[0];
             if (seedParam) setAvatarSeed(seedParam);
-        }
-
-        const { data: walletData } = await supabase
-            .from('wallets')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('id', { ascending: true });
-
-        if (walletData) {
-            setWallets(walletData);
-            if (walletData.length > 0 && !mobileWallet) {
-                setMobileWallet(walletData[0].name);
-            }
         }
 
         const { data: budgetData } = await supabase
@@ -197,14 +151,6 @@ export default function ProfilePage() {
 
         checkUser();
     }, [router]);
-
-    useEffect(() => {
-        if (isMobileFormOpen) {
-            setTimeout(() => {
-                amountInputRef.current?.focus();
-            }, 100);
-        }
-    }, [isMobileFormOpen]);
 
     const handleThemeToggle = (newTheme: 'dark' | 'light') => {
         setTheme(newTheme);
@@ -292,48 +238,6 @@ export default function ProfilePage() {
         }, 800);
     };
 
-    const handleMobileSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!currentUser) return;
-
-        const numericAmount = parseRupiahNumber(mobileAmount);
-        if (!mobileDesc.trim() || numericAmount <= 0 || !mobileWallet) {
-            showToast('Lengkapi semua data transaksi dengan benar ya!', 'error');
-            return;
-        }
-
-        setSubmitting(true);
-        const isJudol = SENSITIVE_KEYWORDS.some(kw => mobileDesc.toLowerCase().includes(kw));
-        const finalCategory = isJudol ? 'Special Recovery Tracker' : (mobileType === 'EXPENSE' ? 'Survival Mode' : 'Main Cashflow');
-
-        const { error } = await supabase.from('transactions').insert([{
-            description: mobileDesc,
-            amount: numericAmount,
-            type: mobileType,
-            category: finalCategory,
-            wallet_name: mobileWallet,
-            created_at: new Date(mobileDate).toISOString(),
-            user_id: currentUser.id
-        }]);
-
-        setSubmitting(false);
-
-        if (error) {
-            showToast('Gagal mencatat transaksi: ' + error.message, 'error');
-        } else {
-            if (isJudol) {
-                const randomAdvice = RECOVERY_ADVICES[Math.floor(Math.random() * RECOVERY_ADVICES.length)];
-                showToast(randomAdvice, 'error');
-            } else {
-                showToast('Transaksi berhasil dicatat!', 'success');
-            }
-            setMobileDesc('');
-            setMobileAmount('');
-            setMobileDate(getCurrentLocalDateTime());
-            setIsMobileFormOpen(false);
-        }
-    };
-
     const isDark = theme === 'dark';
     const bgClass = isDark ? 'bg-zinc-950 text-zinc-100' : 'bg-slate-100 text-slate-900';
     const cardClass = isDark ? 'bg-zinc-900/60 border-zinc-800/80' : 'bg-white/80 border-slate-200/80 shadow-sm';
@@ -353,7 +257,6 @@ export default function ProfilePage() {
 
             <div className="max-w-2xl mx-auto space-y-6">
 
-                {/* HEADER */}
                 <header className={`flex items-center justify-between p-5 md:p-6 rounded-3xl border backdrop-blur-xl ${cardClass}`}>
                     <div>
                         <div className="flex items-center gap-2 text-emerald-500 text-xs font-semibold tracking-wider uppercase mb-0.5">
@@ -393,7 +296,6 @@ export default function ProfilePage() {
                     </div>
                 ) : (
                     <>
-                        {/* PROFILE & STREAK CARD */}
                         <section className={`p-6 rounded-3xl border space-y-5 ${cardClass}`}>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
@@ -420,8 +322,7 @@ export default function ProfilePage() {
                                     </div>
                                 </div>
 
-                                <div className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl border font-bold text-xs ${'bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400'
-                                    }`}>
+                                <div className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl border font-bold text-xs bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-orange-500/30 text-orange-400`}>
                                     <Flame className="w-4 h-4 fill-orange-500 animate-pulse" />
                                     <span>{streakDays} Hari Clean Streak!</span>
                                 </div>
@@ -473,7 +374,6 @@ export default function ProfilePage() {
                             </form>
                         </section>
 
-                        {/* BUDGET TARGET CARD */}
                         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
                             <div className="flex items-center gap-2 text-sm font-bold text-emerald-500">
                                 <Target className="w-5 h-5" />
@@ -515,7 +415,6 @@ export default function ProfilePage() {
                             </form>
                         </section>
 
-                        {/* SETTINGS & THEME CARD */}
                         <section className={`p-6 rounded-3xl border space-y-4 ${cardClass}`}>
                             <h2 className="text-sm font-bold">Tema Aplikasi</h2>
                             <div className="grid grid-cols-2 gap-3">
@@ -542,7 +441,6 @@ export default function ProfilePage() {
                             </div>
                         </section>
 
-                        {/* LOGOUT BUTTON */}
                         <section>
                             <button
                                 onClick={handleLogout}
@@ -555,171 +453,6 @@ export default function ProfilePage() {
                 )}
 
             </div>
-
-            {/* BOTTOM NAVIGATION (MOBILE - INSTAGRAM STYLE 5 GRID) */}
-            <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 px-2 py-2 border-t backdrop-blur-xl ${isDark ? 'bg-zinc-900/95 border-zinc-800 text-zinc-400' : 'bg-white/95 border-slate-200 text-slate-600'
-                }`}>
-                <div className="grid grid-cols-5 items-center w-full max-w-sm mx-auto">
-
-                    <Link
-                        href="/"
-                        className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
-                    >
-                        <HomeIcon className="w-5 h-5" />
-                        <span>Dashboard</span>
-                    </Link>
-
-                    <Link
-                        href="/history"
-                        className={`flex flex-col items-center justify-center gap-1 font-semibold text-[10px] ${subTextClass}`}
-                    >
-                        <HistoryIcon className="w-5 h-5" />
-                        <span>Laporan</span>
-                    </Link>
-
-                    <div className="flex justify-center items-center relative -top-5">
-                        <button
-                            onClick={() => setIsMobileFormOpen(true)}
-                            className="w-12 h-12 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 border border-emerald-400"
-                        >
-                            <Plus className="w-6 h-6 stroke-[3]" />
-                        </button>
-                    </div>
-
-                    <div className="flex flex-col items-center justify-center gap-1 font-semibold text-[10px] opacity-40">
-                        <Sparkles className="w-5 h-5" />
-                        <span>Secret</span>
-                    </div>
-
-                    <Link
-                        href="/profile"
-                        className="flex flex-col items-center justify-center gap-1 text-emerald-500 font-bold text-[10px]"
-                    >
-                        <User className="w-5 h-5" />
-                        <span>Profil</span>
-                    </Link>
-
-                </div>
-            </nav>
-
-            {/* MOBILE MODAL */}
-            {isMobileFormOpen && (
-                <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end animate-in fade-in duration-200">
-                    <div className={`w-full p-5 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
-                        }`}>
-
-                        <div className="w-12 h-1.5 bg-zinc-700/60 rounded-full mx-auto -mt-1 mb-2"></div>
-
-                        <div className="flex justify-between items-center">
-                            <h2 className="text-lg font-bold flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5 text-emerald-500" /> Catat Transaksi Instan
-                            </h2>
-                            <button onClick={() => setIsMobileFormOpen(false)} className={`p-1 ${subTextClass}`}>
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        <form className="space-y-4" onSubmit={handleMobileSubmit}>
-                            <div>
-                                <label className={`text-xs mb-1 block font-semibold ${subTextClass}`}>Nominal (Rp)</label>
-                                <input
-                                    ref={amountInputRef}
-                                    type="text"
-                                    placeholder="Rp 0"
-                                    value={mobileAmount}
-                                    onChange={(e) => setMobileAmount(formatRupiahInput(e.target.value))}
-                                    className={`w-full border rounded-2xl px-4 py-3 text-lg font-black focus:outline-none focus:border-emerald-500 transition-all ${inputBgClass}`}
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className={`text-xs mb-1 block font-semibold ${subTextClass}`}>Keterangan</label>
-                                <input
-                                    type="text"
-                                    placeholder="misal: Kopi / Nasi Goreng"
-                                    value={mobileDesc}
-                                    onChange={(e) => setMobileDesc(e.target.value)}
-                                    className={`w-full border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none transition-all ${inputBgClass}`}
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className={`text-xs mb-1.5 block font-semibold ${subTextClass}`}>Tipe Transaksi</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setMobileType('EXPENSE')}
-                                        className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${mobileType === 'EXPENSE'
-                                            ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-500/20'
-                                            : `${inputBgClass} ${subTextClass}`
-                                            }`}
-                                    >
-                                        Pengeluaran (Keluar)
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setMobileType('INCOME')}
-                                        className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${mobileType === 'INCOME'
-                                            ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-md shadow-emerald-500/20'
-                                            : `${inputBgClass} ${subTextClass}`
-                                            }`}
-                                    >
-                                        Pemasukan (Masuk)
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className={`text-xs mb-1.5 block font-semibold ${subTextClass}`}>Pilih Dompet</label>
-                                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                                    {wallets.map((w) => (
-                                        <button
-                                            key={w.id}
-                                            type="button"
-                                            onClick={() => setMobileWallet(w.name)}
-                                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border shrink-0 transition-all ${mobileWallet === w.name
-                                                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                                                : `${inputBgClass} ${subTextClass}`
-                                                }`}
-                                        >
-                                            {w.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <label className={`text-xs block ${subTextClass}`}>Waktu</label>
-                                    <button
-                                        type="button"
-                                        onClick={() => setMobileDate(getCurrentLocalDateTime())}
-                                        className="text-[10px] text-emerald-500 hover:underline flex items-center gap-0.5"
-                                    >
-                                        <Clock className="w-2.5 h-2.5" /> Jam Sekarang
-                                    </button>
-                                </div>
-                                <input
-                                    type="datetime-local"
-                                    value={mobileDate}
-                                    onChange={(e) => setMobileDate(e.target.value)}
-                                    className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 ${inputBgClass}`}
-                                />
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={submitting}
-                                className="w-full mt-2 font-bold py-3.5 rounded-xl transition-all shadow-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-                            >
-                                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Catat Sekarang'}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

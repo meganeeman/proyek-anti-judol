@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import GlobalFabNavigation from "@/components/GlobalFabNavigation";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,9 +13,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata = {
-  title: 'Anti-Judol Hub | Smart Financial Tracker',
-  description: 'Kelola keuangan dengan bijak dan jauhi judi online!',
+export const metadata: Metadata = {
+  title: "Anti-Judol Hub | Smart Financial Tracker",
+  description: "Kelola keuangan dengan bijak dan jauhi judi online!",
 };
 
 export default function RootLayout({
@@ -27,7 +28,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <GlobalFabNavigation />
+      </body>
     </html>
   );
 }
