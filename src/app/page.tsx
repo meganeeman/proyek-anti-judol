@@ -297,11 +297,13 @@ export default function Home() {
   };
 
   const getWalletCalculatedBalance = (walletName: string) => {
-    const initialWallet = wallets.find(w => w.name === walletName);
+    const initialWallet = wallets.find(
+      w => w.name?.toLowerCase() === walletName?.toLowerCase()
+    );
     const initialBalance = Number(initialWallet?.balance) || 0;
 
     const netTransactionChange = transactions
-      .filter(t => t.wallet_name === walletName)
+      .filter(t => t.wallet_name?.toLowerCase() === walletName?.toLowerCase())
       .reduce((acc, curr) => {
         const amt = Number(curr.amount) || 0;
         return curr.type?.toUpperCase() === 'INCOME' ? acc + amt : acc - amt;
