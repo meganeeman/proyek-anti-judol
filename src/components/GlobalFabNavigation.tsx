@@ -70,6 +70,9 @@ export default function GlobalFabNavigation() {
     const [transactionDate, setTransactionDate] = useState(getCurrentLocalDateTime());
     const [items, setItems] = useState<ItemRow[]>([{ description: '', amount: '' }]);
 
+    const [dragStartY, setDragStartY] = useState<number | null>(null);
+    const [dragOffsetY, setDragOffsetY] = useState(0);
+
     const amountInputRef = useRef<HTMLInputElement>(null);
 
     const fetchWallets = async () => {
@@ -97,8 +100,30 @@ export default function GlobalFabNavigation() {
             setTimeout(() => {
                 amountInputRef.current?.focus();
             }, 100);
+            setDragOffsetY(0);
         }
     }, [isOpen]);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        setDragStartY(e.touches[0].clientY);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (dragStartY === null) return;
+        const currentY = e.touches[0].clientY;
+        const deltaY = currentY - dragStartY;
+        if (deltaY > 0) {
+            setDragOffsetY(deltaY);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (dragOffsetY > 100) {
+            setIsOpen(false);
+        }
+        setDragStartY(null);
+        setDragOffsetY(0);
+    };
 
     const handleAddItemRow = () => {
         setItems(prev => [...prev, { description: '', amount: '' }]);
@@ -215,10 +240,10 @@ export default function GlobalFabNavigation() {
 
                     <div className="flex justify-center items-center relative -top-5">
                         <button
-                            onClick={() => setIsOpen(true)}
-                            className="w-12 h-12 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 border border-emerald-400"
+                            onClick={() => setIsOpen(!isOpen)}
+                            className="w-12 h-12 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-all duration-300 active:scale-95 border border-emerald-400"
                         >
-                            <Plus className="w-6 h-6 stroke-[3]" />
+                            <Plus className={`w-6 h-6 stroke-[3] transition-transform duration-300 ${isOpen ? 'rotate-45' : 'rotate-0'}`} />
                         </button>
                     </div>
 
@@ -239,9 +264,19 @@ export default function GlobalFabNavigation() {
             </nav>
 
             {isOpen && (
-                <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end animate-in fade-in duration-200">
-                    <div className="w-full p-5 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-800 text-zinc-100">
-                        <div className="w-12 h-1.5 bg-zinc-700/60 rounded-full mx-auto -mt-1 mb-2"></div>
+                <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end transition-opacity duration-300">
+                    <div
+                        style={{ transform: `translateY(${dragOffsetY}px)` }}
+                        className="w-full p-5 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-800 text-zinc-100 transition-transform duration-75"
+                    >
+                        <div
+                            onTouchStart={handleTouchStart}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                            className="w-full py-2 cursor-grab active:cursor-grabbing flex justify-center items-center"
+                        >
+                            <div className="w-12 h-1.5 bg-zinc-700/80 hover:bg-zinc-600 rounded-full"></div>
+                        </div>
 
                         <div className="flex justify-between items-center">
                             <h2 className="text-lg font-bold flex items-center gap-2">

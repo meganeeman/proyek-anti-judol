@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -204,8 +204,8 @@ export default function Home() {
       .single();
 
     if (budgetData) {
-      const mLimit = Number(budgetData.monthly_limit) || 1500000;
-      const jLimit = Number(budgetData.judol_limit) || 300000;
+      const mLimit = Math.round(Number(budgetData.monthly_limit)) || 1500000;
+      const jLimit = Math.round(Number(budgetData.judol_limit)) || 300000;
       setMonthlyLimit(mLimit);
       setJudolLimit(jLimit);
       setInputMonthlyLimit('Rp ' + mLimit.toLocaleString('id-ID'));
@@ -289,16 +289,16 @@ export default function Home() {
     const initialWallet = wallets.find(
       w => w.name?.toLowerCase() === walletName?.toLowerCase()
     );
-    const initialBalance = Number(initialWallet?.balance) || 0;
+    const initialBalance = Math.round(Number(initialWallet?.balance)) || 0;
 
     const netTransactionChange = transactions
       .filter(t => t.wallet_name?.toLowerCase() === walletName?.toLowerCase())
       .reduce((acc, curr) => {
-        const amt = Number(curr.amount) || 0;
+        const amt = Math.round(Number(curr.amount)) || 0;
         return curr.type?.toUpperCase() === 'INCOME' ? acc + amt : acc - amt;
       }, 0);
 
-    return initialBalance + netTransactionChange;
+    return Math.round(initialBalance + netTransactionChange);
   };
 
   const totalCalculatedBalance = wallets.reduce((acc, curr) => acc + getWalletCalculatedBalance(curr.name), 0);
@@ -310,11 +310,11 @@ export default function Home() {
 
   const totalIncomeThisMonth = filteredTransactions
     .filter(t => t.type?.toUpperCase() === 'INCOME')
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    .reduce((acc, curr) => acc + Math.round(Number(curr.amount) || 0), 0);
 
   const totalExpenseThisMonth = filteredTransactions
     .filter(t => t.type?.toUpperCase() === 'EXPENSE')
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    .reduce((acc, curr) => acc + Math.round(Number(curr.amount) || 0), 0);
 
   const netSavingsThisMonth = totalIncomeThisMonth - totalExpenseThisMonth;
 
@@ -325,7 +325,7 @@ export default function Home() {
       const hasKeyword = SENSITIVE_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw));
       return isExpense && (isJudolCategory || hasKeyword);
     })
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    .reduce((acc, curr) => acc + Math.round(Number(curr.amount) || 0), 0);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const todayExpense = transactions
@@ -334,7 +334,7 @@ export default function Home() {
       const isToday = t.created_at && t.created_at.startsWith(todayStr);
       return isExpense && isToday;
     })
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    .reduce((acc, curr) => acc + Math.round(Number(curr.amount) || 0), 0);
 
   const baseDailyLimit = Math.round(monthlyLimit / 30);
   const remainingDailyLimit = baseDailyLimit - todayExpense;
@@ -366,7 +366,7 @@ export default function Home() {
 
       transactions.forEach(t => {
         if (t.created_at && t.created_at.startsWith(dateStr)) {
-          const amt = Number(t.amount) || 0;
+          const amt = Math.round(Number(t.amount)) || 0;
           if (t.type?.toUpperCase() === 'INCOME') daysMap[dateStr].income += amt;
           else daysMap[dateStr].expense += amt;
         }
@@ -531,13 +531,13 @@ export default function Home() {
       <div className="max-w-4xl mx-auto space-y-6">
 
         <header className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 md:p-6 rounded-3xl border backdrop-blur-xl ${cardClass}`}>
-          <div className="flex items-center justify-between w-full md:w-auto">
-            <div>
+          <div className="flex items-center justify-between w-full md:w-auto gap-3">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-emerald-500 text-xs font-semibold tracking-wider uppercase mb-0.5">
-                <ShieldCheck className="w-4 h-4" />
+                <ShieldCheck className="w-4 h-4 shrink-0" />
                 <span>Financial Health Zone</span>
               </div>
-              <h1 className="text-xl md:text-2xl font-extrabold tracking-tight">
+              <h1 className="text-xl md:text-2xl font-extrabold tracking-tight truncate">
                 Anti-Judol Hub
               </h1>
             </div>
@@ -545,7 +545,7 @@ export default function Home() {
             <Link
               href="/profile"
               title={userMetadata.displayName}
-              className={`flex items-center gap-2 p-1.5 pr-3 rounded-2xl border transition-all hover:border-emerald-500/50 ${isDark ? 'bg-zinc-800/60 border-zinc-700/60' : 'bg-white border-slate-200 shadow-sm'
+              className={`flex items-center gap-2 p-1.5 pr-3 rounded-2xl border transition-all hover:border-emerald-500/50 shrink-0 ${isDark ? 'bg-zinc-800/60 border-zinc-700/60' : 'bg-white border-slate-200 shadow-sm'
                 }`}
             >
               <img
@@ -553,7 +553,7 @@ export default function Home() {
                 alt="Avatar Mini"
                 className="w-8 h-8 rounded-xl object-cover border border-emerald-500/40 bg-emerald-500/10 shrink-0"
               />
-              <span className="text-xs font-extrabold max-w-[120px] truncate">
+              <span className="text-xs font-extrabold max-w-[100px] sm:max-w-[120px] truncate">
                 {userMetadata.displayName}
               </span>
             </Link>
