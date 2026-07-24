@@ -61,6 +61,7 @@ export default function GlobalFabNavigation() {
     const router = useRouter();
 
     const [isOpen, setIsOpen] = useState(false);
+    const [isAnimating, setIsAnimating] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -95,14 +96,22 @@ export default function GlobalFabNavigation() {
         fetchWallets();
     }, [pathname]);
 
-    useEffect(() => {
-        if (isOpen) {
-            setTimeout(() => {
-                amountInputRef.current?.focus();
-            }, 100);
+    const handleOpenModal = () => {
+        setIsOpen(true);
+        setDragOffsetY(0);
+        setTimeout(() => {
+            setIsAnimating(true);
+            amountInputRef.current?.focus();
+        }, 10);
+    };
+
+    const handleCloseModal = () => {
+        setIsAnimating(false);
+        setTimeout(() => {
+            setIsOpen(false);
             setDragOffsetY(0);
-        }
-    }, [isOpen]);
+        }, 300);
+    };
 
     const handleTouchStart = (e: React.TouchEvent) => {
         setDragStartY(e.touches[0].clientY);
@@ -119,10 +128,11 @@ export default function GlobalFabNavigation() {
 
     const handleTouchEnd = () => {
         if (dragOffsetY > 100) {
-            setIsOpen(false);
+            handleCloseModal();
+        } else {
+            setDragOffsetY(0);
         }
         setDragStartY(null);
-        setDragOffsetY(0);
     };
 
     const handleAddItemRow = () => {
@@ -194,7 +204,7 @@ export default function GlobalFabNavigation() {
         }
 
         setSubmitting(false);
-        setIsOpen(false);
+        handleCloseModal();
         setItems([{ description: '', amount: '' }]);
         setTransactionDate(getCurrentLocalDateTime());
 
@@ -240,7 +250,7 @@ export default function GlobalFabNavigation() {
 
                     <div className="flex justify-center items-center relative -top-5">
                         <button
-                            onClick={() => setIsOpen(!isOpen)}
+                            onClick={() => (isOpen ? handleCloseModal() : handleOpenModal())}
                             className="w-12 h-12 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-all duration-300 active:scale-95 border border-emerald-400"
                         >
                             <Plus className={`w-6 h-6 stroke-[3] transition-transform duration-300 ${isOpen ? 'rotate-45' : 'rotate-0'}`} />
@@ -264,10 +274,18 @@ export default function GlobalFabNavigation() {
             </nav>
 
             {isOpen && (
-                <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end transition-opacity duration-300">
+                <div
+                    className={`lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end transition-opacity duration-300 ${isAnimating ? 'opacity-100' : 'opacity-0'
+                        }`}
+                    onClick={handleCloseModal}
+                >
                     <div
-                        style={{ transform: `translateY(${dragOffsetY}px)` }}
-                        className="w-full p-5 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-800 text-zinc-100 transition-transform duration-75"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            transform: `translateY(${isAnimating ? dragOffsetY : 100}%)`,
+                            transition: dragOffsetY > 0 ? 'none' : 'transform 300ms cubic-bezier(0.16, 1, 0.3, 1)'
+                        }}
+                        className="w-full p-5 rounded-t-3xl border-t space-y-4 max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-800 text-zinc-100"
                     >
                         <div
                             onTouchStart={handleTouchStart}
@@ -282,7 +300,7 @@ export default function GlobalFabNavigation() {
                             <h2 className="text-lg font-bold flex items-center gap-2">
                                 <TrendingUp className="w-5 h-5 text-emerald-500" /> Catat Transaksi Instan
                             </h2>
-                            <button onClick={() => setIsOpen(false)} className="p-1 text-zinc-400 hover:text-zinc-100">
+                            <button onClick={handleCloseModal} className="p-1 text-zinc-400 hover:text-zinc-100">
                                 <X className="w-6 h-6" />
                             </button>
                         </div>

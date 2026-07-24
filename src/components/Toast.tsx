@@ -13,7 +13,7 @@ export default function Toast({ message, type = 'success', onClose }: ToastProps
     useEffect(() => {
         const timer = setTimeout(() => {
             onClose();
-        }, 4000);
+        }, 3000);
 
         return () => clearTimeout(timer);
     }, [onClose]);
@@ -21,10 +21,10 @@ export default function Toast({ message, type = 'success', onClose }: ToastProps
     const isSuccess = type === 'success';
 
     return (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-bounce-short">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 animate-in fade-in slide-in-from-top-4">
             <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border backdrop-blur-xl shadow-2xl ${isSuccess
-                    ? 'bg-zinc-900/90 border-emerald-500/40 text-emerald-400'
-                    : 'bg-zinc-900/90 border-rose-500/40 text-rose-400'
+                ? 'bg-zinc-900/90 border-emerald-500/40 text-emerald-400'
+                : 'bg-zinc-900/90 border-rose-500/40 text-rose-400'
                 }`}>
                 {isSuccess ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
                 <span className="text-xs font-bold text-zinc-100">{message}</span>
