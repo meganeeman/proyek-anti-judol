@@ -327,12 +327,12 @@ export default function Home() {
     })
     .reduce((acc, curr) => acc + Math.round(Number(curr.amount) || 0), 0);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayLocalStr = new Date().toLocaleDateString('en-CA');
   const todayExpense = transactions
     .filter(t => {
       const isExpense = t.type?.toUpperCase() === 'EXPENSE';
-      const isToday = t.created_at && t.created_at.startsWith(todayStr);
-      return isExpense && isToday;
+      const transDateLocal = t.created_at ? new Date(t.created_at).toLocaleDateString('en-CA') : '';
+      return isExpense && transDateLocal === todayLocalStr;
     })
     .reduce((acc, curr) => acc + Math.round(Number(curr.amount) || 0), 0);
 
@@ -360,15 +360,18 @@ export default function Home() {
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = d.toLocaleDateString('en-CA');
       const displayLabel = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
       daysMap[dateStr] = { income: 0, expense: 0 };
 
       transactions.forEach(t => {
-        if (t.created_at && t.created_at.startsWith(dateStr)) {
-          const amt = Math.round(Number(t.amount)) || 0;
-          if (t.type?.toUpperCase() === 'INCOME') daysMap[dateStr].income += amt;
-          else daysMap[dateStr].expense += amt;
+        if (t.created_at) {
+          const transDateStr = new Date(t.created_at).toLocaleDateString('en-CA');
+          if (transDateStr === dateStr) {
+            const amt = Math.round(Number(t.amount)) || 0;
+            if (t.type?.toUpperCase() === 'INCOME') daysMap[dateStr].income += amt;
+            else daysMap[dateStr].expense += amt;
+          }
         }
       });
 
